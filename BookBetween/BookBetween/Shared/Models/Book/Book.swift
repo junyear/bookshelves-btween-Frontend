@@ -8,10 +8,29 @@
 import Foundation
 
 struct Book {
-    let id: String
-    let title: String
-    let author: String
-    let description: String?
-    let thumbnailURL: String? //책 표지 이미지 주소
-    let thumbnailImageName: String? // MockUpdata 용으로 추가. (임시)
+	let id: String
+	let title: String
+	let author: String
+	let description: String?
+	let thumbnailURL: String? //책 표지 이미지 주소
+	let thumbnailImageName: String? // MockUpdata 용으로 추가. (임시)
+	let genre: String?
+
+	init(
+		id: String,
+		title: String,
+		author: String,
+		description: String? = nil,
+		thumbnailURL: String? = nil,
+		thumbnailImageName: String? = nil,
+		genre: String? = nil
+	) {
+		self.id = id
+		self.title = title
+		self.author = author
+		self.description = description
+		self.thumbnailURL = thumbnailURL
+		self.thumbnailImageName = thumbnailImageName
+		self.genre = genre
+	}
 }
