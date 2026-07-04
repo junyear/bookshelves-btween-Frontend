@@ -2,7 +2,7 @@
 //  OnboardingPreviewCardView.swift
 //  BookBetween
 //
-//  Created by Codex on 7/4/26.
+//  Created by 최윤석 on 7/4/26.
 //
 
 import SwiftUI
