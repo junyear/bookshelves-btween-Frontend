@@ -38,7 +38,7 @@ private struct AccountSetupLeafDecorationView: View {
   var body: some View {
     GeometryReader { _ in
       ZStack {
-        Image("accountSetupleaf")
+        Image("accountSetupLeaf")
           .resizable()
           .scaledToFit()
           .frame(width: 123.45, height: 138.25)
@@ -63,9 +63,11 @@ private struct AccountSetupContentView: View {
       AccountSetupTitleSectionView()
         .padding(.top, 126)
 
+      AccountSetupNicknameSectionView()
+        .padding(.top, 36)
+
       Spacer()
     }
-    .padding(.horizontal, 28)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
 }
@@ -84,8 +86,88 @@ private struct AccountSetupTitleSectionView: View {
         .foregroundStyle(Color.gray500)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.leading, 26)
+
   }
 }
+
+// MARK: - 닉네임 설정 영역
+
+private struct AccountSetupNicknameSectionView: View {
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text("닉네임")
+        .body1SemiBoldStyle
+        .foregroundStyle(Color.gray800)
+        .padding(.leading, 30)
+
+
+      AccountSetupNicknameInputView()
+        .padding(.top, 8)
+        .padding(.horizontal, 19)
+
+      Text("다른 사용자에게 표시되는 이름이에요.")
+        .body2RegularStyle
+        .foregroundStyle(Color.gray500)
+        .padding(.top, 8)
+        .padding(.leading, 30)
+
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
+// MARK: - 닉네임 입력 박스
+
+private struct AccountSetupNicknameInputView: View {
+  var body: some View {
+    HStack(spacing: 0) {
+      Text("랜덤 닉네임을 생성해보세요")
+        .body1RegularStyle
+        .foregroundStyle(Color.gray500)
+
+      Spacer()
+
+      AccountSetupNicknameRefreshButton()
+    }
+    .padding(.leading, 18)
+    .padding(.trailing, 22.12)
+    .frame(height: 46)
+    .background(
+        LinearGradient(
+            stops: [
+                Gradient.Stop(color: Color(red: 0.98, green: 0.98, blue: 0.99).opacity(0.4), location: 0.00),
+                Gradient.Stop(color: .white, location: 0.72),
+            ],
+            startPoint: UnitPoint(x: 0.87, y: 0),
+            endPoint: UnitPoint(x: 0.13, y: 1)
+        )
+    )
+    .cornerRadius(12)
+    .overlay {
+        RoundedRectangle(cornerRadius: 12)
+        .inset(by: 0.25)
+        .stroke(Color.gray200, lineWidth: 0.5)
+    }
+    .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 4)  }
+}
+
+// MARK: - 닉네임 새로고침 버튼
+
+private struct AccountSetupNicknameRefreshButton: View {
+  var body: some View {
+    Button {
+    } label: {
+      Image("refresh")
+        .frame(width: 19.49956, height: 19.50294)
+    }
+  }
+}
+
+
+
+
+
 
 #Preview {
   AccountSetupView()
