@@ -1,0 +1,162 @@
+//
+//  LoginView.swift
+//  BookBetween
+//
+//  Created by 최윤석 on 7/9/26.
+//
+
+import SwiftUI
+
+struct LoginView: View {
+  var body: some View {
+    ZStack {
+      LoginBackgroundView()
+
+      LoginContentView()
+    }
+  }
+}
+
+private struct LoginBackgroundView: View {
+  var body: some View {
+    ZStack {
+      Color(red: 0.98, green: 0.98, blue: 0.98)
+        .ignoresSafeArea()
+
+      LinearGradient(
+        stops: [
+          Gradient.Stop(
+            color: .white,
+            location: 0.03
+          ),
+          Gradient.Stop(
+            color: Color(red: 0.80, green: 0.88, blue: 0.82).opacity(0.8),
+            location: 0.70
+          )
+        ],
+        startPoint: UnitPoint(x: 0.52, y: 1.03),
+        endPoint: UnitPoint(x: 0.52, y: 0.05)
+      )
+      .ignoresSafeArea()
+
+      EllipticalGradient(
+        stops: [
+          Gradient.Stop(color: .white, location: 0.30),
+          Gradient.Stop(color: .white.opacity(0), location: 1.00)
+        ],
+        center: UnitPoint(x: 0.5, y: 0.47)
+      )
+      .frame(width: 373, height: 376)
+      .offset(y: -55)
+    }
+  }
+}
+
+private struct LoginContentView: View {
+  var body: some View {
+    VStack(spacing: 0) {
+      Spacer()
+
+      LoginLogoView()
+        .padding(.bottom, 24)
+
+      LoginTitleSectionView()
+        .padding(.bottom, 20)
+
+      LoginSocialButtonSectionView()
+
+      Spacer()
+    }
+    .padding(.horizontal, 51)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+}
+
+private struct LoginLogoView: View {
+  var body: some View {
+    Image("logo")
+      .resizable()
+      .scaledToFit()
+      .frame(width: 152, height: 131)
+  }
+}
+
+private struct LoginTitleSectionView: View {
+  var body: some View {
+    VStack(spacing: 10) {
+        // 폰트 추가 후 수정 필요
+      Text("책장을 넘어서,\n한 권으로 시작하는 모임")
+        .head1Style
+        .multilineTextAlignment(.center)
+        .foregroundStyle(Color.green900)
+
+      Text("책에만 집중할 수 있는 공간으로 들어가보세요")
+        .caption1RegularStyle
+        .foregroundStyle(Color.gray500)
+    }
+  }
+}
+
+private struct LoginSocialButtonSectionView: View {
+  var body: some View {
+    VStack(spacing: 12) {
+      KakaoLoginButton()
+
+      GoogleLoginButton()
+    }
+  }
+}
+
+private struct KakaoLoginButton: View {
+  var body: some View {
+    Button {
+    } label: {
+      HStack(spacing: 8) {
+        Image("kakao")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 17.99993, height: 16.8)
+
+        Text("카카오 로그인")
+          // 폰트 추가 후 수정 필요
+          .body1SemiBoldStyle
+          .foregroundStyle(.black)
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 45)
+      .background(Color(red: 1.0, green: 0.9, blue: 0.0))
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+  }
+}
+
+private struct GoogleLoginButton: View {
+  var body: some View {
+    Button {
+    } label: {
+      HStack(spacing: 11) {
+        Image("google")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 19.5732, height: 20)
+
+        Text("Google 계정으로 로그인")
+          // 폰트 추가 후 수정 필요
+          .body1SemiBoldStyle
+          .foregroundStyle(.black)
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 43.97727)
+      .background(.white)
+      .overlay {
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(Color.gray800, lineWidth: 1)
+      }
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+  }
+}
+
+#Preview {
+  LoginView()
+}
