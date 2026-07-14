@@ -21,9 +21,9 @@ enum BookClubTab: CaseIterable {
 
 	var horizontalPadding: CGFloat {
 		switch self {
-        case .myMeetings: return 17.5
-		case .createdMeetings: return 12
-		case .search: return 13
+        case .myMeetings: return 10
+		case .createdMeetings: return 10
+		case .search: return 10
 		}
 	}
 }
@@ -38,11 +38,24 @@ final class BookClubViewModel {
 	var participatingMeetings: [BookMeeting] = []
 	var createdMeetings: [BookMeeting] = []
 
-	var searchResults: [BookMeeting] {
-		guard !self.searchText.isEmpty else { return [] }
-		return (self.participatingMeetings + self.createdMeetings).filter {
-			$0.book.title.localizedCaseInsensitiveContains(self.searchText)
+	var allBooks: [Book] = [
+		Book(id: "all-b-1", title: "혼모노", author: "성해나", publisher: "창비", thumbnailImageName: "book_cover_meeting_2", genre: "#한국소설"),
+		Book(id: "all-b-2", title: "빛은 얼마나 깊이 스미는가", author: "김초엽", publisher: "창비", thumbnailImageName: "book_cover_meeting_1", genre: "#SF소설"),
+		Book(id: "all-b-3", title: "프로젝트 헤일메리", author: "앤디 위어", publisher: "알에이치코리아", thumbnailImageName: "book_cover_meeting_2", genre: "#SF소설"),
+	]
+
+	var recruitingMeetings: [BookMeeting] = []
+
+	var meetingSearchResults: [BookMeeting] {
+		guard !searchText.isEmpty else { return [] }
+		return recruitingMeetings.filter {
+			$0.book.title.localizedCaseInsensitiveContains(searchText)
 		}
+	}
+
+	var bookSearchResults: [Book] {
+		guard !searchText.isEmpty else { return [] }
+		return allBooks.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
 	}
 
 	// MARK: - Init
@@ -51,6 +64,41 @@ final class BookClubViewModel {
 		let calendar = Calendar.current
 		let date1 = calendar.date(from: DateComponents(year: 2026, month: 6, day: 19, hour: 21)) ?? Date()
 		let date2 = calendar.date(from: DateComponents(year: 2026, month: 6, day: 20, hour: 6)) ?? Date()
+		let date3 = calendar.date(from: DateComponents(year: 2026, month: 11, day: 30, hour: 19)) ?? Date()
+		let date4 = calendar.date(from: DateComponents(year: 2026, month: 12, day: 5, hour: 20)) ?? Date()
+
+		self.recruitingMeetings = [
+			BookMeeting(
+				id: "recruiting-1",
+				book: Book(id: "book-rec-1", title: "혼모노", author: "성해나", description: "성해나 작가의 단편 소설집 『혼모노』는 진짜와 가짜, 믿음에 대한 날카로운 질문을 던지는 작품입니다.", thumbnailURL: nil, thumbnailImageName: "book_cover_meeting_2", genre: "#한국소설"),
+				title: nil, description: "",
+				recruitmentStartDate: date3, recruitmentEndDate: date3,
+				readingStartDate: date3, readingEndDate: date3,
+				meetingDate: date3, timerMinutes: 30,
+				maxParticipants: 6, currentParticipants: 4,
+				status: .recruiting
+			),
+			BookMeeting(
+				id: "recruiting-2",
+				book: Book(id: "book-rec-2", title: "빛은 얼마나 깊이 스미는가", author: "김초엽", description: "우주의 끝에서 혼자 깨어난 과학자가 인류를 구하기 위해 사투를 벌이는 이야기.", thumbnailURL: nil, thumbnailImageName: "book_cover_meeting_1", genre: "#SF소설"),
+				title: nil, description: "",
+				recruitmentStartDate: date4, recruitmentEndDate: date4,
+				readingStartDate: date4, readingEndDate: date4,
+				meetingDate: date4, timerMinutes: 45,
+				maxParticipants: 5, currentParticipants: 2,
+				status: .recruiting
+			),
+			BookMeeting(
+				id: "recruiting-3",
+				book: Book(id: "book-rec-3", title: "혼모노", author: "성해나", description: nil, thumbnailURL: nil, thumbnailImageName: "book_cover_meeting_2", genre: "#한국소설"),
+				title: nil, description: "",
+				recruitmentStartDate: date3, recruitmentEndDate: date3,
+				readingStartDate: date3, readingEndDate: date3,
+				meetingDate: date3, timerMinutes: 60,
+				maxParticipants: 4, currentParticipants: 1,
+				status: .recruiting
+			),
+		]
 
 		self.participatingMeetings = [
 			BookMeeting(

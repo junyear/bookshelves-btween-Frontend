@@ -1,102 +1,210 @@
-//
-//  BookMeetingCardView.swift
-//  BookBetween
-//
-
 import SwiftUI
 
 struct BookMeetingCardView: View {
 	let meeting: BookMeeting
 
 	var body: some View {
-		HStack(alignment: .top, spacing: 12) {
-			Image(meeting.book.thumbnailImageName ?? "book_cover_meeting_1")
-				.resizable()
-				.scaledToFill()
-				.frame(width: 78, height: 112)
-				.clipped()
-				.shadow(color: .black.opacity(0.1), radius: 3, x: -2, y: 2)
+		ZStack {
+			HStack(alignment: .center, spacing: 20) {
+				bookCover
 
-			VStack(alignment: .leading, spacing: 8) {
-				HStack(alignment: .top) {
+				VStack(alignment: .leading, spacing: 4) {
 					statusBadge
-					Spacer()
-					NavigationLink {
-						if meeting.status == .completed {
-							BookMeetingResultView(meeting: meeting)
-						} else {
-							BookMeetingDetailView(meeting: meeting)
-						}
-					} label: {
-						Text("더보기 >")
-							.caption2RegularStyle
-							.foregroundStyle(Color.gray400)
-					}
+
+					Text(meeting.book.title)
+						.body1SemiBoldStyle
+						.lineLimit(1)
+						.foregroundStyle(Color.gray800)
+
+					infoRow
 				}
 
-				Text(meeting.book.title)
-					.body1SemiBoldStyle
-					.lineLimit(2)
-					.foregroundStyle(Color.gray800)
+				Spacer()
+			}
 
-				infoRow
+			VStack {
+				HStack {
+					Spacer()
+					moreButtonLabel
+				}
+				Spacer()
+			}
+
+			NavigationLink {
+				destination
+			} label: {
+				Color.clear
+					.contentShape(Rectangle())
 			}
 		}
-		.padding(16)
+		.padding(.leading, 22)
+        .padding(.trailing, 9.29)
+		.padding(.vertical, 12)
 		.background(.white)
 		.clipShape(RoundedRectangle(cornerRadius: 12))
-		.shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+		.shadow1()
+		.overlay {
+			RoundedRectangle(cornerRadius: 12)
+				.stroke(Color.gray200, lineWidth: 0.5)
+		}
 	}
 
-	// MARK: - Views
+    // MARK: - bookCover
+    
+	private var bookCover: some View {
+        Image(meeting.book.thumbnailImageName ?? "book_cover_02") //이미지 변경 필요
+			.resizable()
+			.scaledToFill()
+			.frame(width: 60, height: 86)
+			.clipped()
+			.shadow3()
+	}
 
+    // MARK: - moreButtonLabel
+    
+	private var moreButtonLabel: some View {
+		HStack(spacing: 4) {
+			Text("더보기")
+				.caption1RegularStyle
+
+			Image("icon_chevron_right_gray")
+				.resizable()
+				.scaledToFill()
+				.frame(width: 6, height: 12)
+				.clipped()
+		}
+		.foregroundStyle(Color.gray600)
+	}
+
+	@ViewBuilder
+	private var destination: some View {
+		if meeting.status == .completed {
+			BookMeetingResultView(meeting: meeting)
+		} else {
+			BookMeetingDetailView(meeting: meeting)
+		}
+	}
+
+	// MARK: - statusBadge
+    
 	private var statusBadge: some View {
 		Text(meeting.status.title)
 			.caption1SemiBoldStyle
-			.foregroundStyle(meeting.status == .completed ? Color.gray500 : Color.green600)
-			.padding(.horizontal, 8)
-			.padding(.vertical, 3)
-			.background(meeting.status == .completed ? Color.gray100 : Color.green50)
+			.foregroundStyle(badgeForegroundColor)
+			.padding(.horizontal, 5)
+			.background(badgeBackgroundColor)
 			.clipShape(Capsule())
 	}
 
-	private var infoRow: some View {
-		HStack(spacing: 4) {
-			Image("icon_calendar")
-			Text(meetingDateText)
-				.caption2RegularStyle
-			separator
-			Image("icon_group")
-			Text("\(meeting.currentParticipants)/\(meeting.maxParticipants)")
-				.caption2RegularStyle
-			separator
-			Image(systemName: "clock")
-				.font(.caption2)
-			Text("\(meeting.timerMinutes)분")
-				.caption2RegularStyle
+	private var badgeForegroundColor: Color {
+		switch meeting.status {
+        case .recruiting: return Color.blue600
+		case .upcoming:   return Color.green800
+		case .completed:  return Color.gray600
 		}
-		.foregroundStyle(Color.gray500)
+	}
+
+	private var badgeBackgroundColor: Color {
+		switch meeting.status {
+        case .recruiting: return Color.pointColor01
+		case .upcoming:   return Color.green50
+		case .completed:  return Color.gray200
+		}
+	}
+
+    // MARK: - infoRow
+    
+	private var infoRow: some View {
+		HStack(spacing: 0) {
+			Image("icon_calendar")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 13, height: 13)
+                .clipped()
+                .padding(.trailing, 4)
+            
+			Text(meetingDateText)
+				.caption1RegularStyle
+                .padding(.trailing, 8)
+            
+			separator
+                .padding(.trailing, 8)
+            
+			Image("icon_group")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 11, height: 10)
+                .clipped()
+                .padding(.trailing, 4)
+            
+			Text("\(meeting.currentParticipants)/\(meeting.maxParticipants)")
+				.caption1RegularStyle
+                .padding(.trailing, 5)
+            
+			separator
+                .padding(.trailing, 8)
+            
+			Image("icon_clock")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 11, height: 11)
+                .clipped()
+                .padding(.trailing, 4)
+            
+			Text("\(meeting.timerMinutes)분")
+				.caption1RegularStyle
+            
+		}
+		.foregroundStyle(Color.gray600)
 	}
 
 	private var separator: some View {
 		Text("|")
-			.caption2RegularStyle
-			.foregroundStyle(Color.gray300)
+			.caption1RegularStyle
+			.foregroundStyle(Color.gray600)
 	}
 
 	// MARK: - Helpers
 
-	private var meetingDateText: String {
+	private static let dateFormatter: DateFormatter = {
 		let formatter = DateFormatter()
 		formatter.locale = Locale(identifier: "ko_KR")
 		formatter.dateFormat = "MM/dd · HH:mm"
-		return formatter.string(from: meeting.meetingDate)
+		return formatter
+	}()
+
+	private var meetingDateText: String {
+		Self.dateFormatter.string(from: meeting.meetingDate)
 	}
 }
 
 #Preview {
 	NavigationStack {
 		VStack(spacing: 12) {
+            BookMeetingCardView(
+                meeting: BookMeeting(
+                    id: "preview-2",
+                    book: Book(
+                        id: "book-2",
+                        title: "프로젝트 헤일메리",
+                        author: "앤디 위어",
+                        description: nil,
+                        thumbnailURL: nil,
+                        thumbnailImageName: "book_cover_meeting_2"
+                    ),
+                    title: nil,
+                    description: "",
+                    recruitmentStartDate: Date(),
+                    recruitmentEndDate: Date(),
+                    readingStartDate: Date(),
+                    readingEndDate: Date(),
+                    meetingDate: Calendar.current.date(from: DateComponents(year: 2026, month: 6, day: 20, hour: 6)) ?? Date(),
+                    timerMinutes: 35,
+                    maxParticipants: 6,
+                    currentParticipants: 3,
+                    status: .upcoming
+                )
+            )
 			BookMeetingCardView(
 				meeting: BookMeeting(
 					id: "preview-1",
@@ -106,7 +214,7 @@ struct BookMeetingCardView: View {
 						author: "김초엽",
 						description: nil,
 						thumbnailURL: nil,
-						thumbnailImageName: "book_cover_meeting_1"
+						thumbnailImageName: "book_cover_02"
 					),
 					title: nil,
 					description: "",
@@ -117,35 +225,10 @@ struct BookMeetingCardView: View {
 					meetingDate: Calendar.current.date(from: DateComponents(year: 2026, month: 6, day: 19, hour: 21)) ?? Date(),
 					timerMinutes: 45,
 					maxParticipants: 6,
-					currentParticipants: 2,
+					currentParticipants: 3,
 					status: .completed
 				)
 			)
-			BookMeetingCardView(
-				meeting: BookMeeting(
-					id: "preview-2",
-					book: Book(
-						id: "book-2",
-						title: "프로젝트 헤일메리",
-						author: "앤디 위어",
-						description: nil,
-						thumbnailURL: nil,
-						thumbnailImageName: "book_cover_meeting_2"
-					),
-					title: nil,
-					description: "",
-					recruitmentStartDate: Date(),
-					recruitmentEndDate: Date(),
-					readingStartDate: Date(),
-					readingEndDate: Date(),
-					meetingDate: Calendar.current.date(from: DateComponents(year: 2026, month: 6, day: 20, hour: 6)) ?? Date(),
-					timerMinutes: 60,
-					maxParticipants: 6,
-					currentParticipants: 4,
-					status: .upcoming
-				)
-			)
 		}
-		.padding()
 	}
 }
