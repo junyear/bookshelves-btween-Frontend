@@ -32,8 +32,8 @@ struct LandingView: View {
 
           LandingStartGuideView()
         }
-          .padding(.top, 576)
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+          .padding(.bottom, 82)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
       }
     }
     .ignoresSafeArea()
