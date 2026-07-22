@@ -7,6 +7,15 @@
 import SwiftUI
 
 struct ProfileView: View {
+    private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+    private let calendarDays: [(day: Int, isCurrentMonth: Bool)] = [
+        (31, false), (1, true), (2, true), (3, true), (4, true), (5, true), (6, true),
+        (7, true), (8, true), (9, true), (10, true), (11, true), (12, true), (13, true),
+        (14, true), (15, true), (16, true), (17, true), (18, true), (19, true), (20, true),
+        (21, true), (22, true), (23, true), (24, true), (25, true), (26, true), (27, true),
+        (28, true), (29, true), (30, true), (1, false), (2, false), (3, false), (4, false)
+    ]
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
@@ -198,13 +207,84 @@ struct ProfileView: View {
     }
 
     private var readingCalendar: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color.white)
-            .frame(height: 391)
-            .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.gray300, lineWidth: 0.5)
+        VStack(spacing: 0) {
+            calendarHeader
+            weekdayHeader
+            calendarGrid
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray200, lineWidth: 0.5)
+        }
+    }
+
+    private var calendarHeader: some View {
+        HStack {
+            Button {
+                // 이전 달 이동 기능 연결 시 동작 추가해야함
+            } label: {
+                Image(systemName: "chevron.left")
+                    .foregroundStyle(Color.gray500)
             }
+
+            Spacer()
+
+            Text("2026년")
+                .head2Style
+                .foregroundStyle(Color.gray800)
+            
+            Text("8월")
+                .head2Style
+                .foregroundStyle(Color.gray800)
+
+            Spacer()
+
+            Button {
+                // 다음 달 이동 기능 연결 시 동작 추가해야함
+            } label: {
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Color.gray500)
+            }
+        }
+        .padding(.horizontal, 32)
+        .frame(height: 76)
+    }
+
+    private var weekdayHeader: some View {
+        HStack(spacing: 0) {
+            ForEach(weekdays, id: \.self) { weekday in
+                Text(weekday)
+                    .caption1SemiBoldStyle
+                    .foregroundStyle(Color.gray500)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(height: 31)
+        .background(Color.gray100)
+    }
+
+    private var calendarGrid: some View {
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
+
+        return LazyVGrid(columns: columns, spacing: 0) {
+            ForEach(Array(calendarDays.enumerated()), id: \.offset) { _, calendarDay in
+                Text("\(calendarDay.day)")
+                    .body2SemiBoldStyle
+                    .foregroundStyle(
+                        calendarDay.isCurrentMonth ? Color.gray800 : Color.gray300
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.top, 5)
+                    .padding(.leading, 8)
+                    .frame(height: 60)
+                    .overlay {
+                        Rectangle()
+                            .stroke(Color.gray300, lineWidth: 0.5)
+                    }
+            }
+        }
     }
 }
 
