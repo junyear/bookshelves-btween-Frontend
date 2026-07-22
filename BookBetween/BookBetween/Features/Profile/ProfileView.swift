@@ -109,13 +109,92 @@ struct ProfileView: View {
     }
 
     private var readingStatisticsCard: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color.white)
-            .frame(height: 110)
-            .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.gray200, lineWidth: 0.5)
+        VStack(spacing: 4) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.green50)
+
+                    Image(systemName: "chart.bar")
+                        .foregroundStyle(Color.green900)
+                }
+                .frame(width: 30, height: 30)
+
+                Text("독서 통계")
+                    .head3Style
+                    .foregroundStyle(Color.green900)
+
+                Spacer()
+
+                Button {
+                    // 독서 통계 상세 화면 연결 시 동작 추가해야함
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("더보기")
+                            .caption1RegularStyle
+
+                        Image("icon_chevron_right_gray")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 6, height: 12)
+                    }
+                    .foregroundStyle(Color.gray500)
+                }
             }
+
+            HStack(spacing: 0) {
+                statisticsItem(title: "읽은 책", value: "24권")
+
+                statisticsDivider
+
+                statisticsItem(title: "리뷰", value: "17개")
+
+                statisticsDivider
+
+                statisticsItem(title: "평균 별점", value: "4.0", showsStar: true)
+            }
+        }
+        .padding(.horizontal, 17)
+        .padding(.vertical, 13)
+        .frame(height: 110)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray200, lineWidth: 0.5)
+        }
+    }
+
+    private func statisticsItem(
+        title: String,
+        value: String,
+        showsStar: Bool = false
+    ) -> some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .caption1RegularStyle
+                .foregroundStyle(Color.gray800)
+
+            HStack(spacing: 4) {
+                if showsStar {
+                    Image("icon_star")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 12, height: 12)
+                }
+
+                Text(value)
+                    .body1SemiBoldStyle
+                    .foregroundStyle(Color.green600)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var statisticsDivider: some View {
+        Rectangle()
+            .fill(Color.gray200)
+            .frame(width: 0.5, height: 50)
     }
 
     private var readingCalendar: some View {
