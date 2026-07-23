@@ -230,7 +230,7 @@ struct ProfileView: View {
     private var calendarHeader: some View {
         HStack {
             Button {
-                // 이전 달 이동 기능 연결 시 동작 추가해야함
+                viewModel.moveToPreviousMonth()
             } label: {
                 Image(systemName: "chevron.left")
                     .foregroundStyle(Color.gray500)
@@ -245,7 +245,7 @@ struct ProfileView: View {
             Spacer()
 
             Button {
-                // 다음 달 이동 기능 연결 시 동작 추가해야함
+                viewModel.moveToNextMonth()
             } label: {
                 Image(systemName: "chevron.right")
                     .foregroundStyle(Color.gray500)

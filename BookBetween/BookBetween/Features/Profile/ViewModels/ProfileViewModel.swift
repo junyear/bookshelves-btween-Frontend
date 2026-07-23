@@ -31,7 +31,31 @@ final class ProfileViewModel {
         sundayFirstCalendar.firstWeekday = 1
 
         self.calendar = sundayFirstCalendar
-        self.displayedMonth = displayedMonth
+        self.displayedMonth = sundayFirstCalendar.date(
+            from: sundayFirstCalendar.dateComponents([.year, .month], from: displayedMonth)
+        ) ?? displayedMonth
+    }
+
+    // MARK: - 월 이동
+
+    func moveToPreviousMonth() {
+        moveMonth(by: -1)
+    }
+
+    func moveToNextMonth() {
+        moveMonth(by: 1)
+    }
+
+    private func moveMonth(by value: Int) {
+        guard let newMonth = calendar.date(
+            byAdding: .month,
+            value: value,
+            to: displayedMonth
+        ) else {
+            return
+        }
+
+        displayedMonth = newMonth
     }
 
     // MARK: - 캘린더 날짜 생성
