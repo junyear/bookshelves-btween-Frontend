@@ -52,8 +52,8 @@
 				C0DA00052FFF000100000001 /* KakaoSDKCommon in Frameworks */,
 				C0DA00072FFF000100000001 /* KakaoSDKUser in Frameworks */,
 				6CAEA7B32FFD354B008AE9CA /* Moya in Frameworks */,
-        FF21C42BB6C2EBAB2B992E2C /* Pods_BookBetween.framework in Frameworks */,
-        6CEB012F3024C9E600055584 /* Kingfisher in Frameworks */,
+				FF21C42BB6C2EBAB2B992E2C /* Pods_BookBetween.framework in Frameworks */,
+				6CEB012F3024C9E600055584 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,8 +154,8 @@
 			packageReferences = (
 				C0DA00012FFF000100000001 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 				6CAEA7B12FFD354B008AE9CA /* XCRemoteSwiftPackageReference "Moya" */,
-        763ECFDE302444FE00D09A63 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
-        6CEB012D3024C9E600055584 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				763ECFDE302444FE00D09A63 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				6CEB012D3024C9E600055584 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6CC2D3F72FEC2E1C006EEB29 /* Products */;
@@ -365,9 +365,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = BookBetween/BookBetween.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = YU253YJCT8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BookBetween/Info.plist;
@@ -386,6 +388,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bookbetween.BookBetween;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = BookBetween;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -404,9 +407,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = BookBetween/BookBetween.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = YU253YJCT8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BookBetween/Info.plist;
@@ -425,6 +430,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bookbetween.BookBetween;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = BookBetween;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -467,22 +473,20 @@
 				minimumVersion = 15.0.3;
 			};
 		};
-763ECFDE302444FE00D09A63 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
-    isa = XCRemoteSwiftPackageReference;
-    repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
-    requirement = {
-        kind = upToNextMajorVersion;
-        minimumVersion = 12.17.0;
-    };
-};
-6CEB012D3024C9E600055584 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
-    isa = XCRemoteSwiftPackageReference;
-    repositoryURL = "https://github.com/onevcat/Kingfisher.git";
-    requirement = {
-        kind = upToNextMajorVersion;
-        minimumVersion = 8.11.0;
-    };
-};
+		6CEB012D3024C9E600055584 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.11.0;
+			};
+		};
+		763ECFDE302444FE00D09A63 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.17.0;
 			};
 		};
 		C0DA00012FFF000100000001 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
