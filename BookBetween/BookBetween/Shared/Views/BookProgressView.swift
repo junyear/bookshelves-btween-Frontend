@@ -11,18 +11,25 @@ import SwiftUI
 struct BookProgressView: View {
     @Binding var progress: Int
     var isEditable: Bool = false
+    var showsKnob: Bool = true
 
     private let barHeight: CGFloat = 3
     private let knobSize: CGFloat = 12
 
-    init(progress: Int) {
+    init(progress: Int, showsKnob: Bool = true) {
         self._progress = .constant(progress)
         self.isEditable = false
+        self.showsKnob = showsKnob
     }
 
-    init(progress: Binding<Int>, isEditable: Bool = true) {
+    init(
+        progress: Binding<Int>,
+        isEditable: Bool = true,
+        showsKnob: Bool = true
+    ) {
         self._progress = progress
         self.isEditable = isEditable
+        self.showsKnob = showsKnob
     }
 
     private var clampedProgress: Int {
@@ -49,8 +56,15 @@ struct BookProgressView: View {
     var body: some View {
         HStack(spacing: 8) {
             GeometryReader { geo in
-                let fullWidth = geo.size.width
-                let knobX = knobSize / 2 + (fullWidth - knobSize) * progressRatio
+                let measuredWidth = geo.size.width
+                let fullWidth = measuredWidth.isFinite ? max(measuredWidth, 0) : 0
+                let availableWidth = showsKnob ? max(fullWidth - knobSize, 0) : fullWidth
+                let knobX = showsKnob
+                    ? min(knobSize / 2 + availableWidth * progressRatio, fullWidth)
+                    : 0
+                let fillWidth = showsKnob
+                    ? max(knobX, 0)
+                    : max(fullWidth * progressRatio, 0)
 
                 ZStack(alignment: .leading) {
                     // 배경 트랙
@@ -70,15 +84,17 @@ struct BookProgressView: View {
                         .frame(width: fullWidth, height: barHeight)
                         .mask(alignment: .leading) {
                             Capsule()
-                                .frame(width: knobX, height: barHeight)
+                                .frame(width: fillWidth, height: barHeight)
                         }
 
-                    // 손잡이
-                    Image(knobImageName)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: knobSize, height: knobSize)
-                        .position(x: knobX, y: geo.size.height / 2)
+                    if showsKnob {
+                        // 손잡이
+                        Image(knobImageName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: knobSize, height: knobSize)
+                            .position(x: knobX, y: geo.size.height / 2)
+                    }
                 }
                 .frame(height: geo.size.height)
                 .contentShape(Rectangle())
@@ -90,7 +106,7 @@ struct BookProgressView: View {
                         }
                 )
             }
-            .frame(height: knobSize)
+            .frame(height: showsKnob ? knobSize : barHeight)
 
             Text("\(clampedProgress)%")
                 .caption2SemiBoldStyle

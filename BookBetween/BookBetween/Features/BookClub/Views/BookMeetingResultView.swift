@@ -5,7 +5,8 @@ struct BookMeetingResultView: View {
 
     private let service: (any MeetingServiceProtocol)?
     @State private var meeting: BookMeeting
-    @State private var meetingDismissed = false
+    @State private var showSummaryPendingModal = false
+    @State private var showFetchErrorModal = false
 
     init(meeting: BookMeeting, service: (any MeetingServiceProtocol)? = nil) {
         self._meeting = State(initialValue: meeting)
@@ -15,14 +16,16 @@ struct BookMeetingResultView: View {
 	private var effectiveTopics: [DiscussionTopic] {
 		if let summaries = meeting.meetingSummary, !summaries.isEmpty {
 			return summaries.map {
-				DiscussionTopic(id: $0.questionOrder, question: $0.question, content: $0.summary, quote: nil)
+				DiscussionTopic(id: $0.order, title: $0.title, content: $0.summary, quote: nil)
 			}
 		}
-		// Preview/fallback mock
+		// 실서버 연결 시 null이면 모달 처리 → 빈 배열 반환
+		guard service == nil else { return [] }
+		// Preview 목 데이터
 		return [
-			DiscussionTopic(id: 1, question: "왜 싯다르타는 계속 떠났을까?", content: "많은 참여자들은 싯다르타가 깨달음을 얻기 위해서가 아니라, 타인의 답을 자신의 답으로 받아들일 수 없었기 때문에 떠났다고 이야기했다.", quote: nil),
-			DiscussionTopic(id: 2, question: "가장 인상 깊었던 시기", content: "참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다.여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공", quote: nil),
-			DiscussionTopic(id: 3, question: "현재의 나와 연결되는 부분", content: "많은 참여자들이 진로 고민, 인간관계, 미래에 대한 불안을 이야기하며 싯다르타의 방황과 자신의 삶을 연결 지었다.", quote: nil)
+			DiscussionTopic(id: 1, title: "왜 싯다르타는 계속 떠났을까?", content: "많은 참여자들은 싯다르타가 깨달음을 얻기 위해서가 아니라, 타인의 답을 자신의 답으로 받아들일 수 없었기 때문에 떠났다고 이야기했다.", quote: nil),
+			DiscussionTopic(id: 2, title: "가장 인상 깊었던 시기", content: "참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다.여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공과 쾌락을 경험하던 시기를 많이 언급했다참여자들은 의외로 싯다르타가 성공", quote: nil),
+			DiscussionTopic(id: 3, title: "현재의 나와 연결되는 부분", content: "많은 참여자들이 진로 고민, 인간관계, 미래에 대한 불안을 이야기하며 싯다르타의 방황과 자신의 삶을 연결 지었다.", quote: nil)
 		]
 	}
 
@@ -32,6 +35,7 @@ struct BookMeetingResultView: View {
 			leafDecoration
 			VStack(spacing: 0) {
 				navigationHeader
+                    .padding(.top, 8)
                     .padding(.bottom, 8)
 
 				ScrollView(showsIndicators: false) {
@@ -53,14 +57,31 @@ struct BookMeetingResultView: View {
 			guard let service else { return }
 			do {
 				meeting = try await service.fetchMeetingDetail(meetingId: meeting.id)
+				if meeting.meetingSummary == nil {
+					showSummaryPendingModal = true
+				}
 			} catch {
-				meetingDismissed = true
-			}
+                showFetchErrorModal = true
+            }
 		}
-		.alert("모임이 폭파됐어요", isPresented: $meetingDismissed) {
-			Button("확인") { dismiss() }
-		} message: {
-			Text("인원 미달로 모임이 자동으로 폭파됐습니다.")
+        .enableSwipeBack()
+		.overlay {
+			if showFetchErrorModal || showSummaryPendingModal {
+				ZStack {
+					Color.black.opacity(0.4)
+						.ignoresSafeArea()
+					if showFetchErrorModal {
+						ErrorModalView(title: "데이터를 불러오지 못했습니다") {
+							showFetchErrorModal = false
+							dismiss()
+						}
+					} else if showSummaryPendingModal {
+						ErrorModalView(title: "요약이 완료되지 않았습니다") {
+							showSummaryPendingModal = false
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -89,8 +110,7 @@ struct BookMeetingResultView: View {
         Image(.leaf2)
             .resizable()
             .scaledToFit()
-            .frame(width: 170, height: 268)
-            .rotationEffect(.degrees(-7))
+            .frame(width: 205, height: 288)
             .offset(x: 137, y: -250)
             .allowsHitTesting(false)
     }
@@ -148,15 +168,8 @@ struct BookMeetingResultView: View {
 		.padding(.horizontal, 20)
 	}
 
-	private var readingPeriodText: String {
-		guard let start = meeting.readingStartDate, let end = meeting.readingEndDate else { return "-" }
-		return "\(Self.dateFormatter.string(from: start)) - \(Self.dateFormatter.string(from: end))"
-	}
-
 	private var compactInfoRows: some View {
 		VStack(alignment: .leading, spacing: 8) {
-			compactInfoRow(icon: { Image("icon_calendar").resizable().scaledToFill().frame(width: 12, height: 12).clipped()  },
-						   text: "독서 기간: \(readingPeriodText)")
 			compactInfoRow(icon: { Image("icon_calendar").resizable().scaledToFill().frame(width: 12, height: 12).clipped()  },
 						   text: "모임 날짜: \(Self.dateTimeFormatter.string(from: meeting.meetingDate))")
 			compactInfoRow(icon: { Image("icon_clock").resizable().scaledToFill().frame(width: 12, height: 12).clipped() },
@@ -303,7 +316,7 @@ struct BookMeetingResultView: View {
                 .padding(.horizontal, 10)
 
 			VStack(alignment: .leading, spacing: 0) {
-				Text(topic.question)
+				Text(topic.title)
 					.body2SemiBoldStyle
 					.foregroundStyle(Color.gray800)
                     .padding(.bottom, 8)

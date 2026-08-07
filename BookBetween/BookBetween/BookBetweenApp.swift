@@ -11,10 +11,17 @@ import KakaoSDKCommon
 
 @main
 struct BookBetweenApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     private let loginViewModel: LoginViewModel
+    private let accountSetupViewModel: AccountSetupViewModel
     private let memberService: MemberServiceProtocol
     private let bookService: BookServiceProtocol
+    private let homeService: any HomeServiceProtocol
     private let meetingService: MeetingService
+    private let notificationService: NotificationServiceProtocol
+    private let chatService: any ChatServiceProtocol
+    private let chatSocketService: any ChatSocketServiceProtocol
 
     init() {
         guard let kakaoNativeAppKey = Bundle.main.object(
@@ -33,6 +40,7 @@ struct BookBetweenApp: App {
         }
 
         let authTokenStore = AuthTokenStore()
+        let authSessionStore = AuthSessionStore()
         let authNetworkConfiguration = NetworkConfiguration(
             baseURL: apiBaseURL,
             accessToken: {
@@ -46,7 +54,8 @@ struct BookBetweenApp: App {
         let loginViewModel = LoginViewModel(
             kakaoLoginService: KakaoLoginService(),
             authService: authService,
-            authTokenStore: authTokenStore
+            authTokenStore: authTokenStore,
+            authSessionStore: authSessionStore
         )
         let authenticatedNetworkConfiguration = NetworkConfiguration(
             baseURL: apiBaseURL,
@@ -59,13 +68,30 @@ struct BookBetweenApp: App {
         )
 
         self.loginViewModel = loginViewModel
+        self.accountSetupViewModel = AccountSetupViewModel(
+            onboardingService: OnboardingService(
+                configuration: authenticatedNetworkConfiguration
+            )
+        )
         self.memberService = MemberService(
             configuration: authenticatedNetworkConfiguration
         )
         self.bookService = BookService(
             configuration: authenticatedNetworkConfiguration
         )
+        self.homeService = HomeService(
+            configuration: authenticatedNetworkConfiguration
+        )
         self.meetingService = MeetingService(
+            configuration: authenticatedNetworkConfiguration
+        )
+        self.notificationService = NotificationService(
+            configuration: authenticatedNetworkConfiguration
+        )
+        self.chatService = ChatService(
+            configuration: authenticatedNetworkConfiguration
+        )
+        self.chatSocketService = ChatSocketService(
             configuration: authenticatedNetworkConfiguration
         )
     }
@@ -74,9 +100,14 @@ struct BookBetweenApp: App {
         WindowGroup {
             AppRootView(
                 loginViewModel: loginViewModel,
+                accountSetupViewModel: accountSetupViewModel,
                 memberService: memberService,
                 bookService: bookService,
-                meetingService: meetingService
+                homeService: homeService,
+                meetingService: meetingService,
+                notificationService: notificationService,
+                chatService: chatService,
+                chatSocketService: chatSocketService
             )
                 .onOpenURL { url in
                     if AuthApi.isKakaoTalkLoginUrl(url) {

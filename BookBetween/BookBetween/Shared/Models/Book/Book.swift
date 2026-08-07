@@ -7,7 +7,16 @@
 
 import Foundation
 
-struct Book: Decodable {
+struct Book: Decodable, Hashable {
+    static func == (lhs: Book, rhs: Book) -> Bool {
+        lhs.isbn == rhs.isbn && lhs.id == rhs.id && lhs.title == rhs.title
+    }
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(isbn)
+        hasher.combine(id)
+        hasher.combine(title)
+    }
+
     let id: Int?
     let isbn: String?
     let title: String
@@ -41,5 +50,23 @@ struct Book: Decodable {
         self.coverImageUrl = coverImageUrl
         self.kdcCode = kdcCode
         self.kdcName = kdcName
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(Int.self, forKey: .id)
+        isbn = try c.decodeIfPresent(String.self, forKey: .isbn)
+        title = try c.decode(String.self, forKey: .title)
+        author = try c.decodeIfPresent(String.self, forKey: .author) ?? ""
+        publisher = try c.decodeIfPresent(String.self, forKey: .publisher)
+        publishedDate = try c.decodeIfPresent(String.self, forKey: .publishedDate)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        coverImageUrl = try c.decodeIfPresent(String.self, forKey: .coverImageUrl)
+        kdcCode = try c.decodeIfPresent(String.self, forKey: .kdcCode)
+        kdcName = try c.decodeIfPresent(String.self, forKey: .kdcName)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, isbn, title, author, publisher, publishedDate, description, coverImageUrl, kdcCode, kdcName
     }
 }

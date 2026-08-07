@@ -10,13 +10,36 @@ import SwiftUI
 struct BookRecordDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: BookRecordDetailViewModel
+    @State private var isShowingSaveSuccess = false
+    @State private var editHintShakeTrigger: CGFloat = 0
     @FocusState private var isReviewFocused: Bool  // 키보드 내리기
+    private let onRecordSaved: ((UserBookRecord) -> Void)?
     
-    init(record: UserBookRecord, isSaveable: Bool = true) {
-        _viewModel = State(initialValue: BookRecordDetailViewModel(record: record, isSaveable: isSaveable))
+    init(
+        record: UserBookRecord,
+        isSaveable: Bool = true,
+        service: any BookServiceProtocol = BookService.stubbed(),
+        loadsRemoteDetail: Bool = false,
+        onRecordSaved: ((UserBookRecord) -> Void)? = nil
+    ) {
+        self.onRecordSaved = onRecordSaved
+        _viewModel = State(
+            initialValue: BookRecordDetailViewModel(
+                record: record,
+                isSaveable: isSaveable,
+                service: service,
+                loadsRemoteDetail: loadsRemoteDetail
+            )
+        )
     }
 
-    init(book: Book, isSaveable: Bool = true) {
+    init(
+        book: Book,
+        isSaveable: Bool = true,
+        service: any BookServiceProtocol = BookService.stubbed(),
+        loadsRemoteDetail: Bool = false,
+        onRecordSaved: ((UserBookRecord) -> Void)? = nil
+    ) {
         self.init(
             record: UserBookRecord(
                 book: book,
@@ -24,24 +47,38 @@ struct BookRecordDetailView: View {
                 rating: nil,
                 memo: nil
             ),
-            isSaveable: isSaveable
+            isSaveable: isSaveable,
+            service: service,
+            loadsRemoteDetail: loadsRemoteDetail,
+            onRecordSaved: onRecordSaved
         )
     }
 
     var body: some View {
         VStack(spacing: 0) {
+            topBar
+                .padding(.horizontal, 30)
+                .padding(.bottom, 13)
+                .zIndex(1)
+
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    topBar
-                    bookHeader
-                    bookDescription
-                    readingRecordForm
+                    if !viewModel.isLoading {
+                        Group {
+                            bookHeader
+                            bookDescription
+                            readingRecordForm
+                        }
+                        .transition(.opacity)
+                    }
                 }
+                .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
                 .padding(.horizontal, 30)
-                .padding(.bottom, 40)
+                .padding(.bottom, 140)// 기록 저장하기 잘림 수정 140 - 40
             }
             .scrollDismissesKeyboard(.interactively)
         }
+        .padding(.top, 8)
         .contentShape(Rectangle())
         .onTapGesture {
             isReviewFocused = false
@@ -52,10 +89,51 @@ struct BookRecordDetailView: View {
                 .scaledToFit()
                 .frame(width: 147, height: 133)
                 .opacity(0.75)
-                //.offset(y: 10)
+                .offset(x: 13)
                 .allowsHitTesting(false)
             }
         .toolbar(.hidden, for: .navigationBar)
+        .enableSwipeBack()
+        .overlay {
+            ZStack {
+                if viewModel.isLoading {
+                    ProgressView()
+                }
+
+                if isShowingSaveSuccess {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+
+                    SuccessModalView(title: "저장되었습니다.") {
+                        isShowingSaveSuccess = false
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                    .zIndex(1)
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isShowingSaveSuccess)
+        }
+        .task {
+            await viewModel.loadBookDetail()
+        }
+        .alert(
+            "도서 정보를 처리하지 못했습니다.",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        viewModel.errorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("확인", role: .cancel) {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
+        }
     }
 
     // MARK: - 책정보, 수정하기
@@ -88,19 +166,28 @@ struct BookRecordDetailView: View {
 
                     Text("수정하기")
                         .body1SemiBoldStyle
-                        .foregroundStyle(.gray800)
                 }
+                .foregroundStyle(.gray800)
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isEditing || !viewModel.isSaveable)
             .opacity(viewModel.isEditing || !viewModel.isSaveable ? 0 : 1)
+            .modifier(ShakeEffect(animatableData: editHintShakeTrigger))
+        }
+    }
+
+    private func requestEditHint() {
+        guard !viewModel.isEditing, viewModel.isSaveable else { return }
+
+        withAnimation(.easeInOut(duration: 0.35)) {
+            editHintShakeTrigger += 1
         }
     }
 
     // MARK: - 책 이미지, 제목
     private var bookHeader: some View {
         HStack(alignment: .center, spacing: 16) {
-            BookCoverImage(book: viewModel.book, placeholderImageName: "book_cover_0")
+            BookCoverImage(book: viewModel.book, placeholderImageName: "book_cover_mock")
                 .scaledToFill()
                 .frame(width: 105.4, height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 9))
@@ -114,12 +201,12 @@ struct BookRecordDetailView: View {
                     .foregroundStyle(.gray800)
                     .lineLimit(1)
 
-                Text(viewModel.book.author)
+                Text(authorAndPublisherText)
                     .body1RegularStyle
                     .foregroundStyle(.gray500)
 
-                if let kdcName = viewModel.book.kdcName {
-                    Text(kdcName)
+                if let categoryText {
+                    Text(categoryText)
                         .body2SemiBoldStyle
                         .foregroundStyle(.white)
                         .padding(.horizontal, 10)
@@ -130,6 +217,30 @@ struct BookRecordDetailView: View {
             }
         }
         .padding(.top, 16)
+    }
+
+    private var authorAndPublisherText: String {
+        guard
+            let publisher = viewModel.book.publisher?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !publisher.isEmpty
+        else {
+            return viewModel.book.author
+        }
+
+        return "\(viewModel.book.author) | \(publisher)"
+    }
+
+    private var categoryText: String? {
+        guard
+            let kdcName = viewModel.book.kdcName?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !kdcName.isEmpty
+        else {
+            return nil
+        }
+
+        return kdcName.hasPrefix("#") ? kdcName : "#\(kdcName)"
     }
 
 
@@ -166,6 +277,7 @@ struct BookRecordDetailView: View {
                     .padding(.top, 8)
             }
         }
+        .simultaneousGesture(TapGesture().onEnded { requestEditHint() })
     }
 
     private let starSize: CGFloat = 20
@@ -201,6 +313,7 @@ struct BookRecordDetailView: View {
                 .padding(.top, 3)
             }
         }
+        .simultaneousGesture(TapGesture().onEnded { requestEditHint() })
         .padding(.top, 8)
     }
 
@@ -223,38 +336,46 @@ struct BookRecordDetailView: View {
     }
 
     private var reviewCard: some View {
-        recordCard (borderColor: viewModel.isEditing ? .green500 : .gray200,
-                    borderWidth: viewModel.isEditing ? 1.5 : 0.5
-        
-        ){
+        recordCard(
+            borderColor: viewModel.isEditing ? .green500 : .gray200,
+            borderWidth: viewModel.isEditing ? 1.5 : 0.5
+        ) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("한줄평")
                     .body1SemiBoldStyle
                     .foregroundStyle(.gray800)
 
-                if viewModel.isEditing {
-                    ZStack(alignment: .topLeading) {
-                        if viewModel.memo.isEmpty {
-                            Text("이 책에 대한 짧은 감상을 남겨주세요.")
-                                .caption1RegularStyle
-                                .foregroundStyle(.gray800)
-                                .allowsHitTesting(false)
-                        }
-
-                        TextEditor(text: $viewModel.memo)
-                            .font(.caption1Regular)
-                            .foregroundStyle(.gray800)
-                            .frame(minHeight: 76)
-                            .scrollContentBackground(.hidden)
-                            .focused($isReviewFocused)  // 키보드 내리기
-                            .padding(.leading, -5)// UIKit의 기본 padding 제거
-                            .padding(.top, -8)
-                    }
-                } else {
-                    Text(viewModel.reviewPlaceholderText)
-                        .caption1RegularStyle
-                        .foregroundStyle(viewModel.hasReview ? .gray700 : .gray500)
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $viewModel.memo)
+                        .font(.caption1Regular)
+                        .foregroundStyle(viewModel.isEditing ? Color.gray800 : Color.gray700)
                         .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
+                        .padding(.horizontal, -5)
+                        .scrollContentBackground(.hidden)
+                        .focused($isReviewFocused)
+                        .allowsHitTesting(viewModel.isEditing)
+                        .accessibilityLabel("한줄평")
+
+                    if !viewModel.hasReview {
+                        Text(viewModel.reviewPlaceholderText)
+                            .font(.caption1Regular)
+                            .foregroundStyle(viewModel.isEditing ? Color.gray800 : Color.gray500)
+                            .padding(.vertical, 8)
+                            .allowsHitTesting(false)
+                    }
+                }
+
+                if viewModel.isEditing {
+                    HStack {
+                        Spacer()
+                        Text("\(viewModel.memo.count) / \(BookRecordDetailViewModel.maxMemoLength)")
+                            .caption2RegularStyle
+                            .foregroundStyle(
+                                viewModel.memo.count >= BookRecordDetailViewModel.maxMemoLength
+                                    ? Color.red
+                                    : Color.gray500
+                            )
+                    }
                 }
             }
             .background (alignment: .bottomTrailing){
@@ -267,23 +388,37 @@ struct BookRecordDetailView: View {
                     .offset(x: 18, y: 16) // padding 만큼 밀어냄
             }
         }
+        .simultaneousGesture(TapGesture().onEnded { requestEditHint() })
         .padding(.top, 8)
     }
-
+    
     private var saveButton: some View {
         Button {
-            viewModel.saveRecord()
+            isReviewFocused = false
+            Task {
+                if let savedRecord = await viewModel.saveRecord() {
+                    onRecordSaved?(savedRecord)
+                    isShowingSaveSuccess = true
+                }
+            }
         } label: {
-            Text("기록 저장하기")
-                .body1SemiBoldStyle
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-                .background(.green600)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            Group {
+                if viewModel.isSaving {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Text("기록 저장하기")
+                        .body1SemiBoldStyle
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .background(.green600)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .disabled(!viewModel.isEditing)
+        .disabled(!viewModel.isEditing || viewModel.isSaving)
         .opacity(viewModel.isEditing ? 1 : 0)
         .padding(.top, 45.82)
     }
@@ -302,6 +437,17 @@ struct BookRecordDetailView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(borderColor, lineWidth: borderWidth)
             }
+    }
+}
+
+private struct ShakeEffect: GeometryEffect {
+    var travelDistance: CGFloat = 6
+    var numberOfShakes: CGFloat = 3
+    var animatableData: CGFloat
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let translation = travelDistance * sin(animatableData * .pi * numberOfShakes)
+        return ProjectionTransform(CGAffineTransform(translationX: translation, y: 0))
     }
 }
 

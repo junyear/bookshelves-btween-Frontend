@@ -10,6 +10,7 @@ struct BookMeetingDetailView: View {
     @State private var isParticipating = false
     @State private var participationError: String?
     @State private var meetingDismissed = false
+    @State private var showSuccessModal = false
 
     init(meeting: BookMeeting, service: (any MeetingServiceProtocol)? = nil, isParticipant: Bool = false, onParticipated: (() -> Void)? = nil) {
         self._meeting = State(initialValue: meeting)
@@ -26,6 +27,7 @@ struct BookMeetingDetailView: View {
 			}
 			VStack(spacing: 0) {
 				navigationHeader
+                    .padding(.top, 8)
                     .padding(.bottom, 7)
 				subtitleHeader
                     .padding(.bottom, 6)
@@ -41,14 +43,13 @@ struct BookMeetingDetailView: View {
                         noticeSection
                             .padding(.bottom, 24)
                         if meeting.status == .recruiting && !isParticipant {
-                            bottomButton(isParticipating ? "참여 중..." : "모임 참여하기") {
+                            BottomActionButton(title: isParticipating ? "참여 중..." : "모임 참여하기") {
                                 guard !isParticipating else { return }
                                 Task {
                                     isParticipating = true
                                     do {
                                         _ = try await service?.participateMeeting(meetingId: meeting.id)
-                                        dismiss()
-                                        onParticipated?()
+                                        showSuccessModal = true
                                     } catch {
                                         participationError = error.localizedDescription
                                         isParticipating = false
@@ -63,6 +64,18 @@ struct BookMeetingDetailView: View {
 				.scrollBounceBehavior(.basedOnSize)
 			}
 		}
+        .enableSwipeBack()
+		.overlay {
+            if showSuccessModal {
+                ZStack {
+                    Color.black.opacity(0.4).ignoresSafeArea()
+                    SuccessModalView(title: "모임에 참여했습니다") {
+                        dismiss()
+                        onParticipated?()
+                    }
+                }
+            }
+        }
 		.toolbar(.hidden, for: .navigationBar)
 		.hideTabBar()
 		.alert("모임 참여 실패", isPresented: Binding(
@@ -74,8 +87,7 @@ struct BookMeetingDetailView: View {
 			Text(participationError ?? "")
 		}
 		.task {
-			// 이미 참여한 모임은 서버 status가 RECRUITING으로 내려와 클라이언트 변환을 덮어쓰므로 fetch 생략
-			guard let service, !isParticipant else { return }
+			guard let service else { return }
 			do {
 				meeting = try await service.fetchMeetingDetail(meetingId: meeting.id)
 			} catch {
@@ -323,20 +335,25 @@ struct BookMeetingDetailView: View {
 
 // MARK: - Shared Bottom Button
 
-func bottomButton(_ title: String, action: @escaping () -> Void) -> some View {
-	Button(action: action) {
-		Text(title)
-			.body1SemiBoldStyle
-			.foregroundStyle(.white)
-			.frame(maxWidth: .infinity)
-			.padding(.vertical, 14)
-			.background(Color.green600)
-			.clipShape(RoundedRectangle(cornerRadius: 10.3))
-            .padding(.horizontal, 29)
-	}
-	.background {
-		Color.white.ignoresSafeArea(edges: .bottom)
-	}
+struct BottomActionButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .body1SemiBoldStyle
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.green600)
+                .clipShape(RoundedRectangle(cornerRadius: 10.3))
+                .padding(.horizontal, 29)
+        }
+        .background {
+            Color.white.ignoresSafeArea(edges: .bottom)
+        }
+    }
 }
 
 #Preview {

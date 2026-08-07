@@ -7,8 +7,8 @@ import Foundation
 
 struct HomeResultDTO: Decodable {
     let member: HomeMemberDTO
-    let recommendedAt: String
-    let recommendedBook: HomeRecommendedBookDTO
+    let recommendedAt: String?
+    let recommendedBook: HomeRecommendedBookDTO?
     let recentBook: HomeRecentBookDTO?
     let meetings: [HomeMeetingItemDTO]
 }
@@ -24,7 +24,6 @@ struct HomeRecommendedBookDTO: Decodable {
 
 struct HomeRecentBookDTO: Decodable {
     let memberBook: HomeMemberBookDTO
-    let memberBookHistory: HomeMemberBookHistoryDTO
     let book: HomeBookDTO
 }
 
@@ -33,11 +32,7 @@ struct HomeMemberBookDTO: Decodable {
     let progress: Int
     let status: String
     let rating: Double?
-}
-
-struct HomeMemberBookHistoryDTO: Decodable {
-    let id: Int
-    let createdAt: String
+    let updatedAt: String
 }
 
 struct HomeMeetingItemDTO: Decodable {
@@ -59,10 +54,29 @@ struct HomeBookDTO: Decodable {
     let isbn: String
     let title: String
     let author: String
-    let publisher: String
+    let publisher: String?
     let coverImageUrl: String?
     let kdcCode: String?
     let kdcName: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, isbn, title, author, publisher, coverImageUrl, kdcCode, kdcName
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(Int.self, forKey: .id)
+        isbn = try container.decode(String.self, forKey: .isbn)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+            ?? "제목 정보 없음"
+        author = try container.decodeIfPresent(String.self, forKey: .author)
+            ?? "저자 미상"
+        publisher = try container.decodeIfPresent(String.self, forKey: .publisher)
+        coverImageUrl = try container.decodeIfPresent(String.self, forKey: .coverImageUrl)
+        kdcCode = try container.decodeIfPresent(String.self, forKey: .kdcCode)
+        kdcName = try container.decodeIfPresent(String.self, forKey: .kdcName)
+    }
 }
 
 struct HomeMeetingBookDTO: Decodable {
@@ -77,21 +91,22 @@ extension HomeResultDTO {
         Home(
             member: HomeMember(nickname: member.nickname),
             recommendedAt: recommendedAt,
-            recommendedBook: HomeRecommendedBook(
-                recommendationMessage: recommendedBook.recommendationMessage,
-                book: recommendedBook.book.toDomain()
-            ),
+            recommendedBook: recommendedBook.map {
+                HomeRecommendedBook(
+                    recommendationMessage: $0.recommendationMessage,
+                    book: $0.book.toDomain()
+                )
+            },
             recentBook: try recentBook.map { recentBook in
                 HomeRecentBook(
                     memberBook: HomeMemberBook(
                         id: recentBook.memberBook.id,
                         progress: recentBook.memberBook.progress,
                         status: recentBook.memberBook.status,
-                        rating: recentBook.memberBook.rating
-                    ),
-                    memberBookHistory: HomeMemberBookHistory(
-                        id: recentBook.memberBookHistory.id,
-                        createdAt: try parseISO8601Date(recentBook.memberBookHistory.createdAt)
+                        rating: recentBook.memberBook.rating,
+                        updatedAt: try parseAPIDate(
+                            recentBook.memberBook.updatedAt
+                        )
                     ),
                     book: recentBook.book.toDomain()
                 )
@@ -101,7 +116,7 @@ extension HomeResultDTO {
                     meeting: HomeMeetingSummary(
                         id: item.meeting.id,
                         status: item.meeting.status,
-                        startDate: try parseISO8601Date(item.meeting.startDate),
+                        startDate: try parseAPIDate(item.meeting.startDate),
                         currentParticipants: item.meeting.currentParticipants,
                         maxParticipants: item.meeting.maxParticipants,
                         duration: item.meeting.duration
@@ -117,12 +132,47 @@ extension HomeResultDTO {
         )
     }
 
-    private func parseISO8601Date(_ value: String) throws -> Date {
-        let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: value) else {
+    private func parseAPIDate(_ value: String) throws -> Date {
+        let iso8601Formatter = ISO8601DateFormatter()
+        if let date = iso8601Formatter.date(from: value) {
+            return date
+        }
+
+        let fractionalISO8601Formatter = ISO8601DateFormatter()
+        fractionalISO8601Formatter.formatOptions = [
+            .withInternetDateTime,
+            .withFractionalSeconds
+        ]
+        if let date = fractionalISO8601Formatter.date(from: value) {
+            return date
+        }
+
+        let localFormatter = DateFormatter()
+        localFormatter.locale = Locale(identifier: "en_US_POSIX")
+        localFormatter.calendar = Calendar(identifier: .gregorian)
+        localFormatter.timeZone = .current
+        localFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+
+        let localDateComponents = value.split(
+            separator: ".",
+            maxSplits: 1,
+            omittingEmptySubsequences: false
+        )
+        guard let date = localFormatter.date(from: String(localDateComponents[0])) else {
             throw HomeDTOError.invalidDate(value)
         }
-        return date
+
+        guard localDateComponents.count == 2 else {
+            return date
+        }
+
+        let fractionalDigits = localDateComponents[1].prefix { $0.isNumber }
+        guard !fractionalDigits.isEmpty,
+              let fractionalSeconds = Double("0.\(fractionalDigits)") else {
+            throw HomeDTOError.invalidDate(value)
+        }
+
+        return date.addingTimeInterval(fractionalSeconds)
     }
 }
 

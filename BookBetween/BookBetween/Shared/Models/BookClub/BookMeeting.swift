@@ -8,8 +8,8 @@
 import Foundation
 
 struct MeetingSummaryItem: Decodable {
-    let questionOrder: Int
-    let question: String
+    let order: Int
+    let title: String
     let summary: String
 }
 
@@ -40,12 +40,15 @@ enum BookMeetingStatus: Decodable {
         case .recruiting: return "모집중"
         case .upcoming: return "참여예정"
         case .inProgress: return "참여중"
-        case .completed: return "참여완료"
+        case .completed: return "모임완료"
         }
     }
 }
 
-struct BookMeeting: Decodable {
+struct BookMeeting: Decodable, Hashable {
+    static func == (lhs: BookMeeting, rhs: BookMeeting) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
     let id: Int
     let chatroomId: Int
     let book: Book

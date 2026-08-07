@@ -10,16 +10,23 @@ import SwiftUI
 @MainActor
 struct SearchView: View {
     @State private var viewModel: SearchViewModel
+    @State private var presentedActionMenuItemID: UUID?
     @FocusState private var isSearchFocused: Bool
+    private let meetingService: (any MeetingServiceProtocol)?
 
-    init() {
+    init(meetingService: (any MeetingServiceProtocol)? = nil) {
         _viewModel = State(
             initialValue: SearchViewModel(service: BookService.stubbed())
         )
+        self.meetingService = meetingService
     }
 
-    init(viewModel: SearchViewModel) {
+    init(
+        viewModel: SearchViewModel,
+        meetingService: (any MeetingServiceProtocol)? = nil
+    ) {
         _viewModel = State(initialValue: viewModel)
+        self.meetingService = meetingService
     }
 
     var body: some View {
@@ -33,23 +40,41 @@ struct SearchView: View {
                         .offset(y: 145)
                 }
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        TitleView
-                        SearchInputSectionView
+                VStack(alignment: .leading, spacing: 16) {
+                    TitleView
+                    SearchInputSectionView
+
+                    ScrollView(showsIndicators: false) {
                         SearchResultSectionView(
                             idleHeight: idleHeight
                         )
+                        .padding(.bottom, 80)
                     }
                     .scrollDismissesKeyboard(.interactively)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
+                    .refreshable {
                         isSearchFocused = false
+                        await viewModel.refresh()
                     }
-                    .padding(.horizontal, 19)
-                    //.padding(.top, 12)
-                    .padding(.bottom, 24)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isSearchFocused = false
+                }
+                .padding(.horizontal, 19)
+            }
+            .padding(.top, 8)
+        }
+        .navigationDestination(for: SearchRoute.self) { route in
+            switch route {
+            case .createMeeting(let book):
+                BookMeetingCreateView(book: book, service: meetingService)
+            case .bookDetail(let item):
+                BookRecordDetailView(
+                    book: item.book,
+                    isSaveable: item.isSaveable,
+                    service: viewModel.bookService,
+                    loadsRemoteDetail: true
+                )
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -171,7 +196,13 @@ struct SearchView: View {
                     .padding(.top, 24)
             } else {
                 ForEach(viewModel.searchResults, id: \.listID) { item in
-                    SearchBookResultCardView(item: item)
+                    SearchBookResultCardView(
+                        item: item,
+                        service: viewModel.bookService,
+                        meetingService: meetingService,
+                        isActionMenuPresented: actionMenuBinding(for: item)
+                    )
+                        .zIndex(presentedActionMenuItemID == item.listID ? 1 : 0)
                         .task {
                             await viewModel.loadNextPageIfNeeded(currentItem: item)
                         }
@@ -183,6 +214,19 @@ struct SearchView: View {
                     .padding(.vertical, 12)
             }
         }
+    }
+
+    private func actionMenuBinding(for item: BookSearchItem) -> Binding<Bool> {
+        Binding(
+            get: { presentedActionMenuItemID == item.listID },
+            set: { isPresented in
+                if isPresented {
+                    presentedActionMenuItemID = item.listID
+                } else if presentedActionMenuItemID == item.listID {
+                    presentedActionMenuItemID = nil
+                }
+            }
+        )
     }
 
     private func SearchIdleView(height: CGFloat) -> some View {
@@ -248,8 +292,10 @@ private struct RecentKeywordRow: View {
                     .body2RegularStyle
                     .foregroundStyle(Color.gray600)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(action: onDelete) {
                 Image(systemName: "xmark")

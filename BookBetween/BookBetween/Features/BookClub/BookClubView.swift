@@ -4,9 +4,28 @@ struct BookClubView: View {
 	@State private var viewModel: BookClubViewModel
 	@State private var currentMeetingPage = 0
 	@FocusState private var isSearchFocused: Bool
+    @State private var showFetchErrorModal = false
+    @State private var showSummaryPendingModal = false
+    private let navigationPath: Binding<NavigationPath>
 
-	init(meetingService: (any MeetingServiceProtocol)? = nil, bookService: (any BookServiceProtocol)? = nil) {
-		_viewModel = State(initialValue: BookClubViewModel(meetingService: meetingService, bookService: bookService))
+	init(
+		meetingService: (any MeetingServiceProtocol)? = nil,
+		bookService: (any BookServiceProtocol)? = nil,
+        memberService: (any MemberServiceProtocol)? = nil,
+		chatService: (any ChatServiceProtocol)? = nil,
+		chatSocketService: (any ChatSocketServiceProtocol)? = nil,
+        navigationPath: Binding<NavigationPath> = .constant(NavigationPath())
+	) {
+		_viewModel = State(
+			initialValue: BookClubViewModel(
+				meetingService: meetingService,
+				bookService: bookService,
+                memberService: memberService,
+				chatService: chatService,
+				chatSocketService: chatSocketService
+			)
+		)
+        self.navigationPath = navigationPath
 	}
 
 	var body: some View {
@@ -17,6 +36,7 @@ struct BookClubView: View {
                     .foregroundStyle(Color.gray900)
 				Spacer()
 			}
+            .padding(.top, 8)
 			.padding(.horizontal, 30)
             .padding(.bottom, 6)
 
@@ -30,29 +50,71 @@ struct BookClubView: View {
 					Spacer()
 					MonthYearPickerView(
 						selectedYear: Bindable(viewModel).selectedYear,
-						selectedMonth: Bindable(viewModel).selectedMonth
+						selectedMonth: Bindable(viewModel).selectedMonth,
+						startYear: viewModel.joinedYear
 					)
 				}
 				.padding(.horizontal, 19)
                 .padding(.bottom, 15)
 
 				ScrollView(showsIndicators: false) {
-					VStack(spacing: 12) {
-						if viewModel.selectedTab == .myMeetings {
-							meetingList(viewModel.filteredParticipatingMeetings)
-						} else {
-							meetingList(viewModel.filteredCreatedMeetings)
+					let meetings = viewModel.selectedTab == .myMeetings
+						? viewModel.filteredParticipatingMeetings
+						: viewModel.filteredCreatedMeetings
+					if meetings.isEmpty {
+						emptyStateView(message: "모임이 없습니다")
+							.frame(height: 522)
+					} else {
+						VStack(spacing: 12) {
+							meetingList(meetings)
 						}
+						.padding(.top, 1)
+						.padding(.bottom, 100)
 					}
-                    .padding(.top, 1)
-					.padding(.bottom, 100)
 				}
+				.refreshable {
+                    await viewModel.fetchMyMeetings()
+                }
 				.scrollBounceBehavior(.basedOnSize)
 			}
 		}
 		.background(Color.beige100)
 		.toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(for: BookClubRoute.self) { route in
+            switch route {
+            case .detail(let meeting, let isParticipant):
+                BookMeetingDetailView(
+                    meeting: meeting,
+                    service: viewModel.meetingService,
+                    isParticipant: isParticipant,
+                    onParticipated: isParticipant ? nil : {
+                        viewModel.selectedTab = .myMeetings
+                        Task { await viewModel.fetchMyMeetings() }
+                    }
+                )
+            case .chat(let chatroomId, let meetingId):
+                if let chatService = viewModel.chatService, let chatSocketService = viewModel.chatSocketService {
+                    ChatView(viewModel: ChatViewModel(
+                        chatroomId: chatroomId,
+                        meetingId: meetingId,
+                        chatService: chatService,
+                        socketService: chatSocketService
+                    ))
+                } else {
+                    ChatView(chatroomId: chatroomId, meetingId: meetingId)
+                }
+            case .result(let meeting):
+                BookMeetingResultView(meeting: meeting, service: viewModel.meetingService)
+            case .create(let book):
+                BookMeetingCreateView(book: book, service: viewModel.meetingService) {
+                    viewModel.selectedTab = .myMeetings
+                    Task { await viewModel.fetchMyMeetings() }
+                }
+            }
+        }
+        .bookClubErrorOverlay(showFetchError: $showFetchErrorModal, showSummaryPending: $showSummaryPendingModal)
 		.task {
+            await viewModel.fetchJoinedYear()
 			await viewModel.fetchMyMeetings()
 		}
 		.onChange(of: viewModel.selectedYear) {
@@ -96,7 +158,16 @@ struct BookClubView: View {
 	@ViewBuilder
 	private func meetingList(_ meetings: [BookMeeting]) -> some View {
 		ForEach(meetings, id: \.id) { meeting in
-			BookMeetingCardView(meeting: meeting, service: viewModel.meetingService, isParticipant: true)
+			BookMeetingCardView(
+				meeting: meeting,
+				service: viewModel.meetingService,
+				isParticipant: true,
+                onCompletedNavigate: { fetched in
+                    navigationPath.wrappedValue.append(BookClubRoute.result(fetched))
+                },
+                onFetchError: { showFetchErrorModal = true },
+                onSummaryPending: { showSummaryPendingModal = true }
+			)
 		}
 	}
 
@@ -111,16 +182,12 @@ struct BookClubView: View {
 				VStack(alignment: .leading, spacing: 0) {
 					ZStack(alignment: .top) {
 						if viewModel.meetingSearchResults.isEmpty {
-							emptyMeetingStateView
+							emptyStateView(message: "검색된 모임이 없습니다")
 						} else {
 							meetingResultsSection
 						}
 					}
 					.frame(height: 522)
-
-					if !viewModel.searchText.isEmpty {
-						bookResultsSection
-					}
 				}
 				.padding(.top, 8)
 				.contentShape(Rectangle())
@@ -137,19 +204,19 @@ struct BookClubView: View {
 		}
 	}
 
-	private var emptyMeetingStateView: some View {
+	private func emptyStateView(message: String) -> some View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
             ZStack {
                 RadialGradient(
-                    colors: [
-                        Color.green01.opacity(0.58),
-                        Color.white.opacity(0)
+                    stops: [
+                        Gradient.Stop(color: Color.green01.opacity(0.4), location: 0.2982),
+                        Gradient.Stop(color: Color.green01.opacity(0.0), location: 0.7019)
                     ],
-                    center: UnitPoint(x: 0.5, y: 0.48),
-                    startRadius: 12,
-                    endRadius: 270
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: w * 0.5951
                 )
 
                 Image("leaf_left")
@@ -170,7 +237,7 @@ struct BookClubView: View {
                     .frame(width: 152, height: 131)
                     .position(x: w / 2, y: h * 0.46)
 
-                Text("검색된 모임이 없습니다")
+                Text(message)
                     .pointText5Style
                     .foregroundStyle(Color.green900)
                     .position(x: w / 2, y: h * 0.67)
@@ -180,19 +247,6 @@ struct BookClubView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - Decoration
-
-    private var leafDecoration: some View {
-        Image(.leaf1)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 123)
-            .opacity(0.55)
-            .rotationEffect(.degrees(-5))
-            .offset(x: 137, y: -300)
-            .allowsHitTesting(false)
-    }
-
     // MARK: - searchBar
     
 	private var searchBar: some View {
@@ -236,10 +290,15 @@ struct BookClubView: View {
                 ZStack(alignment: .top) {
                     VStack(spacing: 12) {
                         ForEach(meetingPages[currentMeetingPage], id: \.id) { meeting in
-                            BookMeetingCardView(meeting: meeting, service: viewModel.meetingService, onParticipated: {
-                                viewModel.selectedTab = .myMeetings
-                                Task { await viewModel.fetchMyMeetings() }
-                            })
+                            BookMeetingCardView(
+                                meeting: meeting,
+                                service: viewModel.meetingService,
+                                onCompletedNavigate: { fetched in
+                                    navigationPath.wrappedValue.append(BookClubRoute.result(fetched))
+                                },
+                                onFetchError: { showFetchErrorModal = true },
+                                onSummaryPending: { showSummaryPendingModal = true }
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -249,6 +308,21 @@ struct BookClubView: View {
                     .padding(.top, 92)
                     .padding(.bottom, 40)
 			}
+            .background(alignment: .topLeading) {
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.green01, Color.green01.opacity(0)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 281
+                        )
+                    )
+                    .frame(width: 562, height: 454)
+                    .opacity(0.40)
+                    .offset(x: -175, y: 575)
+                    .allowsHitTesting(false)
+            }
 		}
 	}
 
@@ -294,72 +368,8 @@ struct BookClubView: View {
 		.frame(maxWidth: .infinity)
 	}
 
-	// MARK: - Book Results (가로 스크롤)
-
-	@ViewBuilder
-	private var bookResultsSection: some View {
-		if !viewModel.bookSearchResults.isEmpty {
-			VStack(spacing: 0) {
-                Text("도서 목록")
-                    .pointText4Style
-                    .foregroundStyle(Color.gray800)
-                    .padding(.bottom, 5.14)
-
-				HStack(spacing: 0) {
-                    Rectangle()
-                        .frame(width: 110, height: 1)
-                        .foregroundStyle(Color.gray900)
-                        .opacity(0.35)
-                    Spacer()
-                    Rectangle()
-                        .frame(width: 110, height: 1)
-                        .foregroundStyle(Color.gray900)
-                        .opacity(0.35)
-				}
-                .padding(.bottom, 6.86)
-                .padding(.horizontal, 7)
-
-				Text("아래 목록에서 도서를 선택해보세요")
-					.caption1RegularStyle
-					.foregroundStyle(Color.gray400)
-					.frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.bottom, 24.14)
-
-				ScrollView(.horizontal, showsIndicators: false) {
-					HStack(spacing: 20) {
-						ForEach(viewModel.bookSearchResults, id: \.isbn) { book in
-							NavigationLink {
-								BookMeetingCreateView(book: book, service: viewModel.meetingService) {
-									viewModel.selectedTab = .createdMeetings
-									Task { await viewModel.fetchMyMeetings() }
-								}
-							} label: {
-								BookSearchCardView(book: book)
-							}
-						}
-					}
-                    .padding(.horizontal, 27)
-					.padding(.bottom, 100)
-				}
-			}
-            .background(alignment: .topLeading) {
-                Ellipse()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.green01, Color.green01.opacity(0)],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 281
-                        )
-                    )
-                    .frame(width: 562, height: 454)
-                    .opacity(0.40)
-                    .offset(x: -175, y: -50)
-                    .allowsHitTesting(false)
-            }
-		}
-	}
 }
+
 
 #Preview {
 	NavigationStack {

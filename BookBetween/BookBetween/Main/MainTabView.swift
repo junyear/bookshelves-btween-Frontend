@@ -11,22 +11,39 @@ struct MainTabView: View {
     @State private var selectedTab: TabCase = .home
     @State private var hideTabBar = false
     @State private var homeNavigationPath = NavigationPath()
+    @State private var bookClubPath = NavigationPath()
 
     private let memberService: MemberServiceProtocol?
     private let bookService: BookServiceProtocol
+    private let homeService: any HomeServiceProtocol
     private let meetingService: (any MeetingServiceProtocol)?
+    private let notificationService: any NotificationServiceProtocol
+    private let chatService: any ChatServiceProtocol
+    private let chatSocketService: (any ChatSocketServiceProtocol)?
     private let onLogout: () async throws -> Void
+    private let onWithdraw: () async throws -> Void
 
     init(
         memberService: MemberServiceProtocol? = nil,
         bookService: BookServiceProtocol = BookService.stubbed(),
+        homeService: any HomeServiceProtocol = HomeService.stubbed(),
         meetingService: (any MeetingServiceProtocol)? = nil,
-        onLogout: @escaping () async throws -> Void = {}
+        notificationService: any NotificationServiceProtocol =
+            NotificationService.stubbed(),
+        chatService: any ChatServiceProtocol = ChatService.stubbed(),
+        chatSocketService: (any ChatSocketServiceProtocol)? = nil,
+        onLogout: @escaping () async throws -> Void = {},
+        onWithdraw: @escaping () async throws -> Void = {}
     ) {
         self.memberService = memberService
         self.bookService = bookService
+        self.homeService = homeService
         self.meetingService = meetingService
+        self.notificationService = notificationService
+        self.chatService = chatService
+        self.chatSocketService = chatSocketService
         self.onLogout = onLogout
+        self.onWithdraw = onWithdraw
     }
 
     var body: some View {
@@ -35,11 +52,42 @@ struct MainTabView: View {
                 switch selectedTab {
                 case .home:
                     NavigationStack(path: $homeNavigationPath) {
-                        HomeView()
+                        HomeView(
+                            viewModel: HomeViewModel(
+                                service: homeService
+                            ),
+                            bookService: bookService,
+                            meetingService: meetingService
+                        )
                             .navigationDestination(for: HomeRoute.self) { route in
                                 switch route {
                                 case .notificationInbox:
-                                    NotificationInboxView()
+                                    NotificationInboxView(
+                                        viewModel: NotificationInboxViewModel(
+                                            service: notificationService
+                                        ),
+                                        meetingService: meetingService,
+                                        chatService: chatService,
+                                        chatSocketService: chatSocketService
+                                    )
+                                case .meetingDetail(let meeting):
+                                    BookMeetingDetailView(
+                                        meeting: meeting,
+                                        service: meetingService
+                                    )
+                                case .bookDetail(let book):
+                                    BookRecordDetailView(
+                                        book: book,
+                                        isSaveable: book.isbn != nil,
+                                        service: bookService,
+                                        loadsRemoteDetail: true
+                                    )
+                                case .recentBookDetail(let record):
+                                    BookRecordDetailView(
+                                        record: record,
+                                        service: bookService,
+                                        loadsRemoteDetail: true
+                                    )
                                 }
                             }
                     }
@@ -48,20 +96,37 @@ struct MainTabView: View {
                         SearchView(
                             viewModel: SearchViewModel(
                                 service: bookService
-                            )
+                            ),
+                            meetingService: meetingService
                         )
                     }
                 case .bookClub:
-                    NavigationStack { BookClubView(meetingService: meetingService, bookService: bookService) }
+                    NavigationStack(path: $bookClubPath) {
+                        BookClubView(
+                            meetingService: meetingService,
+                            bookService: bookService,
+                            memberService: memberService,
+                            chatService: chatService,
+                            chatSocketService: chatSocketService,
+                            navigationPath: $bookClubPath
+                        )
+                    }
                 case .myLibrary:
-                    NavigationStack { MyLibraryView() }
+                    NavigationStack {
+                        MyLibraryView(bookService: bookService)
+                    }
                 case .profile:
                     NavigationStack {
                         ProfileView(
                             viewModel: ProfileViewModel(
-                                memberService: memberService
+                                memberService: memberService,
+                                bookService: bookService
                             ),
-                            onLogout: onLogout
+                            statisticsViewModel: ReadingStatisticsViewModel(
+                                bookService: bookService
+                            ),
+                            onLogout: onLogout,
+                            onWithdraw: onWithdraw
                         )
                     }
                 }

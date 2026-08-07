@@ -20,6 +20,15 @@ enum MyLibraryTab: CaseIterable {
 		case .toRead: return "읽기 전"
 		}
 	}
+
+    var apiStatus: String {
+        switch self {
+        case .all: return "ALL"
+        case .read: return "FINISHED"
+        case .reading: return "READING"
+        case .toRead: return "BEFORE_READING"
+        }
+    }
 }
 
 @Observable
@@ -29,8 +38,12 @@ final class MyLibraryViewModel {
 
 	var selectedTab: MyLibraryTab = .all
 	var records: [UserBookRecord] = []
+    var isLoading = false
+
+    private let bookService: (any BookServiceProtocol)?
 
 	var filteredRecords: [UserBookRecord] {
+        guard bookService == nil else { return records }
 		switch self.selectedTab {
 		case .all:
 			return self.records
@@ -45,12 +58,15 @@ final class MyLibraryViewModel {
 
 	// MARK: - Init
 
-	init() {
+	init(bookService: (any BookServiceProtocol)? = nil) {
+        self.bookService = bookService
+        guard bookService == nil else { return }
 		self.records = [
 			UserBookRecord(
 				id: 1,
 				book: Book(
 					id: 1,
+                    isbn: "9788937460586",
 					title: "싯다르타",
 					author: "최은영",
 					description: "헤르만 헤세의 대표작. 인도를 배경으로 한 청년 싯다르타의 깨달음의 여정을 담은 소설로, 자아를 찾아 떠나는 구도의 길과 삶의 의미에 대한 깊은 통찰을 담고 있습니다.",
@@ -64,6 +80,7 @@ final class MyLibraryViewModel {
 				id: 2,
 				book: Book(
 					id: 2,
+                    isbn: "9788936434595",
 					title: "혼모노",
 					author: "성해나",
 					description: "성해나 작가의 단편 소설집 『혼모노』는 진짜와 가짜, 믿음에 대한 날카로운 질문을 던지는 작품입니다.\n표제작 『혼모노』는 신발을 읽고 20대 애기 무당에게 자리를 빼앗긴 베테랑 무당이 진정한 자신의 정체성을 찾아가는 과정을 그립니다.",
@@ -77,6 +94,7 @@ final class MyLibraryViewModel {
 				id: 3,
 				book: Book(
 					id: 3,
+                    isbn: "9788937460883",
 					title: "오만과 편견",
 					author: "제인 오스틴",
 					description: "19세기 영국을 배경으로 엘리자베스 베넷과 다아시의 사랑 이야기를 통해 당시 사회의 오만함과 편견을 날카롭게 풍자한 소설입니다.",
@@ -88,4 +106,42 @@ final class MyLibraryViewModel {
 			)
 		]
 	}
+
+    // MARK: - Actions
+
+    func fetchRecords() async {
+        guard let bookService else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            records = try await bookService.fetchMemberBooks(
+                status: selectedTab.apiStatus,
+                page: 1,
+                size: 50
+            )
+        } catch {
+            records = []
+        }
+    }
+
+    func deleteRecord(_ record: UserBookRecord) async {
+        guard let bookService, let isbn = record.book.isbn else { return }
+        do {
+            try await bookService.deleteMemberBook(isbn: isbn)
+            records.removeAll { $0.id == record.id }
+        } catch {}
+    }
+
+    func updateRecord(_ updatedRecord: UserBookRecord) {
+        if let index = records.firstIndex(where: { record in
+            if let updatedID = updatedRecord.id {
+                return record.id == updatedID
+            }
+            return record.book.isbn == updatedRecord.book.isbn
+        }) {
+            records[index] = updatedRecord
+        } else {
+            records.append(updatedRecord)
+        }
+    }
 }

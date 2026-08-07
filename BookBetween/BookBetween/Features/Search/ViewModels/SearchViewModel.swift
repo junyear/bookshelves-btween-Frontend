@@ -16,6 +16,7 @@ final class SearchViewModel {
     private(set) var searchResults: [BookSearchItem] = []
     private(set) var isSearching = false
     private(set) var isLoadingNextPage = false
+    private(set) var isRefreshing = false
     private(set) var hasSearched = false
     var errorMessage: String?
 
@@ -24,6 +25,10 @@ final class SearchViewModel {
     private var currentPage = 0
     private var hasNext = false
     private var submittedQuery = ""
+
+    var bookService: any BookServiceProtocol {
+        service
+    }
 
     init(
         service: any BookServiceProtocol,
@@ -60,7 +65,8 @@ final class SearchViewModel {
             let result = try await service.searchBooks(
                 query: keyword,
                 page: 1,
-                size: pageSize
+                size: pageSize,
+                saveRecent: true
             )
 
             searchResults = result.books
@@ -72,6 +78,34 @@ final class SearchViewModel {
             recentKeywords.removeAll { $0 == keyword }
             recentKeywords.insert(keyword, at: 0)
             recentKeywords = Array(recentKeywords.prefix(5))
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refresh() async {
+        guard !isSearching, !isLoadingNextPage, !isRefreshing else { return }
+
+        guard hasSearched, !submittedQuery.isEmpty else {
+            await loadRecentSearches()
+            return
+        }
+
+        isRefreshing = true
+        errorMessage = nil
+        defer { isRefreshing = false }
+
+        do {
+            let result = try await service.searchBooks(
+                query: submittedQuery,
+                page: 1,
+                size: pageSize,
+                saveRecent: false
+            )
+
+            searchResults = result.books
+            currentPage = result.page
+            hasNext = result.hasNext
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -99,7 +133,8 @@ final class SearchViewModel {
             let result = try await service.searchBooks(
                 query: submittedQuery,
                 page: currentPage + 1,
-                size: pageSize
+                size: pageSize,
+                saveRecent: true
             )
 
             searchResults.append(contentsOf: result.books)

@@ -11,6 +11,7 @@ struct BookMeetingCreateView: View {
 	@State private var showingParticipantsPicker = false
 	@State private var isCreating = false
 	@State private var creationError: String?
+    @State private var showSuccessModal = false
 
 	private static let dateOnlyFormatter: DateFormatter = {
 		let f = DateFormatter()
@@ -58,6 +59,7 @@ struct BookMeetingCreateView: View {
             leafDecoration
             VStack(spacing: 0) {
                 navigationHeader
+                    .padding(.top, 8)
                     .padding(.bottom, 7)
                 subtitleHeader
                     .padding(.bottom, 6)
@@ -72,7 +74,7 @@ struct BookMeetingCreateView: View {
                             .padding(.bottom, 40)
                         noticeSection
                             .padding(.bottom, 24)
-                        bottomButton(isCreating ? "생성 중..." : "+ 모임 생성하기") {
+                        BottomActionButton(title: isCreating ? "생성 중..." : "+ 모임 생성하기") {
                             guard !isCreating, let isbn = book.isbn else { return }
                             Task {
                                 isCreating = true
@@ -85,8 +87,7 @@ struct BookMeetingCreateView: View {
                                         maxParticipants: maxParticipants,
                                         duration: timerMinutes
                                     )
-                                    dismiss()
-                                    onMeetingCreated?()
+                                    showSuccessModal = true
                                 } catch {
                                     creationError = error.localizedDescription
                                 }
@@ -97,6 +98,18 @@ struct BookMeetingCreateView: View {
                     }
                 }
                 .scrollBounceBehavior(.basedOnSize)
+            }
+        }
+        .enableSwipeBack()
+		.overlay {
+            if showSuccessModal {
+                ZStack {
+                    Color.black.opacity(0.4).ignoresSafeArea()
+                    SuccessModalView(title: "모임을 생성했습니다") {
+                        dismiss()
+                        onMeetingCreated?()
+                    }
+                }
             }
         }
 		.toolbar(.hidden, for: .navigationBar)
@@ -117,10 +130,8 @@ struct BookMeetingCreateView: View {
         Image(.leaf1)
             .resizable()
             .scaledToFit()
-            .frame(width: 123)
-            .opacity(0.55)
-            .rotationEffect(.degrees(-5))
-            .offset(x: 137, y: -300)
+            .frame(width: 133)
+            .offset(x: 137, y: -320)
             .allowsHitTesting(false)
     }
     
@@ -285,13 +296,25 @@ struct BookMeetingCreateView: View {
 					}
 				},
 				picker: {
-					DatePicker("", selection: $meetingDate, displayedComponents: [.hourAndMinute])
-						.datePickerStyle(.wheel)
-						.labelsHidden()
-						.environment(\.locale, Locale(identifier: "en_GB"))
-                        .frame(width: 300)
-						.frame(height: 150)
-						.clipped()
+					HStack(spacing: 0) {
+						Picker("시", selection: hourBinding) {
+							ForEach(0...23, id: \.self) { h in
+								Text(String(format: "%02d시", h)).tag(h)
+							}
+						}
+						.pickerStyle(.wheel)
+						.frame(maxWidth: .infinity)
+
+						Picker("분", selection: minuteBinding) {
+							ForEach(0...59, id: \.self) { m in
+								Text(String(format: "%02d분", m)).tag(m)
+							}
+						}
+						.pickerStyle(.wheel)
+						.frame(maxWidth: .infinity)
+					}
+					.frame(height: 150)
+					.padding(.horizontal, 8)
 				}
 			)
             .padding(.top, 24)
@@ -403,7 +426,7 @@ struct BookMeetingCreateView: View {
 
 			if isExpanded {
 				picker()
-					.transition(.opacity.combined(with: .move(edge: .top)))
+					.transition(.opacity)
 			}
 		}
 	}
@@ -428,6 +451,28 @@ struct BookMeetingCreateView: View {
 			set: { newDay in
 				var comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: meetingDate)
 				comps.day = newDay
+				meetingDate = Calendar.current.date(from: comps) ?? meetingDate
+			}
+		)
+	}
+
+	private var hourBinding: Binding<Int> {
+		Binding(
+			get: { Calendar.current.component(.hour, from: meetingDate) },
+			set: { newHour in
+				var comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: meetingDate)
+				comps.hour = newHour
+				meetingDate = Calendar.current.date(from: comps) ?? meetingDate
+			}
+		)
+	}
+
+	private var minuteBinding: Binding<Int> {
+		Binding(
+			get: { Calendar.current.component(.minute, from: meetingDate) },
+			set: { newMinute in
+				var comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: meetingDate)
+				comps.minute = newMinute
 				meetingDate = Calendar.current.date(from: comps) ?? meetingDate
 			}
 		)

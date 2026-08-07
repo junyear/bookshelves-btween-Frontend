@@ -16,12 +16,13 @@ final class NotificationInboxViewModel {
 
     private let service: any NotificationServiceProtocol
     private let pageSize: Int
-    private let pollingIntervalNanoseconds: UInt64
     private let automaticallyLoads: Bool
+    private let pollingInterval: Duration
     private var currentPage = 0
     private var hasNext = false
     private var hasLoaded = false
-    private var isPolling = false
+    private var newestNotificationId = 0
+    private var isCheckingForNewNotifications = false
     private var readingNotificationIds: Set<Int> = []
 
     var isEmpty: Bool {
@@ -31,11 +32,11 @@ final class NotificationInboxViewModel {
     init(
         service: any NotificationServiceProtocol,
         pageSize: Int = 20,
-        pollingIntervalNanoseconds: UInt64 = 30_000_000_000
+        pollingInterval: Duration = .seconds(30)
     ) {
         self.service = service
         self.pageSize = pageSize
-        self.pollingIntervalNanoseconds = pollingIntervalNanoseconds
+        self.pollingInterval = pollingInterval
         self.automaticallyLoads = true
     }
 
@@ -43,7 +44,7 @@ final class NotificationInboxViewModel {
         self.notifications = notifications
         self.service = NotificationService.stubbed()
         self.pageSize = 20
-        self.pollingIntervalNanoseconds = 30_000_000_000
+        self.pollingInterval = .seconds(30)
         self.automaticallyLoads = false
     }
 
@@ -51,7 +52,16 @@ final class NotificationInboxViewModel {
         guard automaticallyLoads else { return }
 
         await loadNotifications()
-        await pollForNewNotifications()
+
+        while !Task.isCancelled {
+            do {
+                try await Task.sleep(for: pollingInterval)
+            } catch {
+                return
+            }
+
+            await loadNewNotifications()
+        }
     }
 
     func loadNotifications() async {
@@ -69,10 +79,20 @@ final class NotificationInboxViewModel {
             notifications = result.notifications
             currentPage = result.page
             hasNext = result.hasNext
+            newestNotificationId = result.notifications.map(\.id).max() ?? 0
             hasLoaded = true
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func refreshNotifications() async {
+        guard automaticallyLoads, !isLoading else { return }
+
+        hasLoaded = false
+        currentPage = 0
+        hasNext = false
+        await loadNotifications()
     }
 
     func loadNextPageIfNeeded(currentItem: NotificationItem) async {
@@ -120,41 +140,50 @@ final class NotificationInboxViewModel {
 
             notifications[index] = notifications[index].markingAsRead()
         } catch {
-            errorMessage = error.localizedDescription
+            // 읽음 처리는 화면 진입에 곁들여지는 부수 효과입니다.
+            // 실패해도 사용자가 하려던 동작을 막지 않도록 알리지 않습니다.
+            #if DEBUG
+            print("[Notification] 읽음 처리 실패: \(error)")
+            #endif
         }
     }
 
-    private func pollForNewNotifications() async {
-        guard !isPolling else { return }
+    private func loadNewNotifications() async {
+        guard
+            hasLoaded,
+            !isLoading,
+            !isLoadingNextPage,
+            !isCheckingForNewNotifications
+        else { return }
 
-        isPolling = true
-        defer { isPolling = false }
-
-        while !Task.isCancelled {
-            do {
-                try await Task.sleep(
-                    nanoseconds: pollingIntervalNanoseconds
-                )
-            } catch {
-                return
-            }
-
-            await fetchNewNotifications()
-        }
-    }
-
-    private func fetchNewNotifications() async {
-        guard let latestNotificationId = notifications.map(\.id).max() else {
-            return
-        }
+        isCheckingForNewNotifications = true
+        defer { isCheckingForNewNotifications = false }
 
         do {
-            let newNotifications = try await service.fetchNewNotifications(
-                afterId: latestNotificationId
-            )
+            var cursor = newestNotificationId
+            var newNotifications: [NotificationItem] = []
+
+            while !Task.isCancelled {
+                let batch = try await service.fetchNewNotifications(
+                    afterId: cursor,
+                    size: pageSize
+                )
+                newNotifications.append(contentsOf: batch.notifications)
+
+                guard batch.hasNext, batch.nextCursor > cursor else {
+                    cursor = max(cursor, batch.nextCursor)
+                    break
+                }
+
+                cursor = batch.nextCursor
+            }
+
+            newestNotificationId = cursor
             prependUnique(newNotifications)
         } catch {
-            errorMessage = error.localizedDescription
+            #if DEBUG
+            print("[Notification] 새 알림 조회 실패: \(error)")
+            #endif
         }
     }
 
@@ -169,16 +198,11 @@ final class NotificationInboxViewModel {
 
     private func prependUnique(_ newNotifications: [NotificationItem]) {
         let existingIds = Set(notifications.map(\.id))
-        let uniqueNotifications = newNotifications.filter {
-            !existingIds.contains($0.id)
-        }
+        let uniqueNotifications = newNotifications
+            .filter { !existingIds.contains($0.id) }
+            .sorted { $0.id > $1.id }
 
         notifications.insert(contentsOf: uniqueNotifications, at: 0)
-        notifications.sort {
-            if $0.createdAt == $1.createdAt {
-                return $0.id > $1.id
-            }
-            return $0.createdAt > $1.createdAt
-        }
     }
+
 }

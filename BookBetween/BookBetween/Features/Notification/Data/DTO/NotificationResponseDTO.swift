@@ -14,6 +14,8 @@ struct NotificationListResultDTO: Decodable {
 
 struct NewNotificationResultDTO: Decodable {
     let notifications: [NotificationItemDTO]
+    let nextCursor: Int
+    let hasNext: Bool
 }
 
 struct NotificationItemDTO: Decodable {
@@ -42,8 +44,12 @@ extension NotificationListResultDTO {
 }
 
 extension NewNotificationResultDTO {
-    func toDomain() throws -> [NotificationItem] {
-        try notifications.map { try $0.toDomain() }
+    func toDomain() throws -> NewNotificationBatch {
+        NewNotificationBatch(
+            notifications: try notifications.map { try $0.toDomain() },
+            nextCursor: nextCursor,
+            hasNext: hasNext
+        )
     }
 }
 
@@ -67,17 +73,41 @@ private extension NotificationItemDTO {
             return date
         }
 
+        let fractionalISO8601Formatter = ISO8601DateFormatter()
+        fractionalISO8601Formatter.formatOptions = [
+            .withInternetDateTime,
+            .withFractionalSeconds
+        ]
+        if let date = fractionalISO8601Formatter.date(from: value) {
+            return date
+        }
+
         let localFormatter = DateFormatter()
         localFormatter.locale = Locale(identifier: "en_US_POSIX")
         localFormatter.calendar = Calendar(identifier: .gregorian)
         localFormatter.timeZone = .current
         localFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
 
-        guard let date = localFormatter.date(from: value) else {
+        let localDateComponents = value.split(
+            separator: ".",
+            maxSplits: 1,
+            omittingEmptySubsequences: false
+        )
+        guard let date = localFormatter.date(from: String(localDateComponents[0])) else {
             throw NotificationDTOError.invalidDate(value)
         }
 
-        return date
+        guard localDateComponents.count == 2 else {
+            return date
+        }
+
+        let fractionalDigits = localDateComponents[1].prefix { $0.isNumber }
+        guard !fractionalDigits.isEmpty,
+              let fractionalSeconds = Double("0.\(fractionalDigits)") else {
+            throw NotificationDTOError.invalidDate(value)
+        }
+
+        return date.addingTimeInterval(fractionalSeconds)
     }
 }
 

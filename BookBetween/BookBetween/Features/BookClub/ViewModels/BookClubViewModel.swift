@@ -26,21 +26,21 @@ enum BookClubTab: CaseIterable {
 @Observable
 final class BookClubViewModel {
 
-	// MARK: - Constants
-
-	static let minimumParticipants = 3
-
 	// MARK: - Properties
 
 	var selectedTab: BookClubTab = .myMeetings
 	var meetingService: (any MeetingServiceProtocol)?
     private let bookService: (any BookServiceProtocol)?
+    private let memberService: (any MemberServiceProtocol)?
+    var chatService: (any ChatServiceProtocol)?
+    var chatSocketService: (any ChatSocketServiceProtocol)?
 	var searchText: String = ""
 	var participatingMeetings: [BookMeeting] = []
 	var createdMeetings: [BookMeeting] = []
 
 	var selectedYear: Int = 0
 	var selectedMonth: Int = 0
+    var joinedYear: Int? = nil
 
 	var filteredParticipatingMeetings: [BookMeeting] {
 		let meetings: [BookMeeting]
@@ -52,58 +52,24 @@ final class BookClubViewModel {
 				return yearMatch && monthMatch
 			}
 		} else {
-			let now = Date()
 			var seen = Set<Int>()
-			meetings = (participatingMeetings
-				.filter { meeting in
-					// 모임 시간이 지났고 최소 인원 미달이면 폭파된 것으로 간주하여 제거
-					!(meeting.meetingDate <= now && meeting.currentParticipants < Self.minimumParticipants)
-				}
-				.map(withParticipantStatus)
-				+ createdMeetings.map(withParticipantStatus))
+			meetings = (participatingMeetings + createdMeetings)
 				.filter { seen.insert($0.id).inserted }
 		}
 		return sortedMeetings(meetings)
 	}
 
 	var filteredCreatedMeetings: [BookMeeting] {
-		let meetings: [BookMeeting]
 		if meetingService == nil {
-			meetings = createdMeetings.filter { meeting in
+			let meetings = createdMeetings.filter { meeting in
 				let components = Calendar.current.dateComponents([.year, .month], from: meeting.meetingDate)
 				let yearMatch = selectedYear == 0 || components.year == selectedYear
 				let monthMatch = selectedMonth == 0 || components.month == selectedMonth
 				return yearMatch && monthMatch
 			}
-		} else {
-			meetings = createdMeetings.map(withParticipantStatus)
+			return sortedMeetings(meetings)
 		}
-		return sortedMeetings(meetings)
-	}
-
-	private func withParticipantStatus(_ meeting: BookMeeting) -> BookMeeting {
-		guard meeting.status == .recruiting || meeting.status == .upcoming else { return meeting }
-		let now = Date()
-		let meetingEnd = meeting.meetingDate.addingTimeInterval(TimeInterval(meeting.timerMinutes * 60))
-		let newStatus: BookMeetingStatus
-		if meetingEnd <= now {
-			newStatus = .completed
-		} else if meeting.meetingDate <= now {
-			newStatus = .inProgress
-		} else {
-			newStatus = .upcoming
-		}
-		guard newStatus != meeting.status else { return meeting }
-		return BookMeeting(
-			id: meeting.id,
-			chatroomId: meeting.chatroomId,
-			book: meeting.book,
-			meetingDate: meeting.meetingDate,
-			timerMinutes: meeting.timerMinutes,
-			maxParticipants: meeting.maxParticipants,
-			currentParticipants: meeting.currentParticipants,
-			status: newStatus
-		)
+		return sortedMeetings(createdMeetings)
 	}
 
 	private func sortedMeetings(_ meetings: [BookMeeting]) -> [BookMeeting] {
@@ -125,7 +91,7 @@ final class BookClubViewModel {
 		}
 	}
 
-	var allBooks: [Book] = [
+	private let allBooks: [Book] = [
 		Book(id: 101, title: "혼모노", author: "성해나", publisher: "창비", kdcName: "한국소설"),
 		Book(id: 102, title: "빛은 얼마나 깊이 스미는가", author: "김초엽", publisher: "창비", kdcName: "SF소설"),
 		Book(id: 103, title: "프로젝트 헤일메리", author: "앤디 위어", publisher: "알에이치코리아", kdcName: "SF소설"),
@@ -157,9 +123,18 @@ final class BookClubViewModel {
 
 	// MARK: - Init
 
-	init(meetingService: (any MeetingServiceProtocol)? = nil, bookService: (any BookServiceProtocol)? = nil) {
+	init(
+		meetingService: (any MeetingServiceProtocol)? = nil,
+		bookService: (any BookServiceProtocol)? = nil,
+        memberService: (any MemberServiceProtocol)? = nil,
+		chatService: (any ChatServiceProtocol)? = nil,
+		chatSocketService: (any ChatSocketServiceProtocol)? = nil
+	) {
 		self.meetingService = meetingService
         self.bookService = bookService
+        self.memberService = memberService
+        self.chatService = chatService
+        self.chatSocketService = chatSocketService
 
         guard meetingService == nil else { return }
 
@@ -271,6 +246,13 @@ final class BookClubViewModel {
 
 	// MARK: - Actions
 
+    func fetchJoinedYear() async {
+        guard let memberService else { return }
+        guard let profile = try? await memberService.fetchMyProfile() else { return }
+        let joinedAt = Calendar.current.date(byAdding: .day, value: -profile.joinedDays, to: Date()) ?? Date()
+        joinedYear = Calendar.current.component(.year, from: joinedAt)
+    }
+
 	func fetchMyMeetings() async {
 		guard let meetingService else { return }
 		let year: Int? = selectedYear > 0 ? selectedYear : nil
@@ -305,7 +287,7 @@ final class BookClubViewModel {
 
 		if let svc = bookService {
 			do {
-				let page = try await svc.searchBooks(query: query, page: 1, size: 20)
+				let page = try await svc.searchBooks(query: query, page: 1, size: 20, saveRecent: false)
 				let items = page.books.filter { $0.isSaveable }.map { $0.book }
 				var seenIsbns = Set<String>()
 				var seenTitles = Set<String>()

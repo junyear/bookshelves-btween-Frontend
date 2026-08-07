@@ -11,7 +11,7 @@ struct NotificationTarget: TargetType {
     enum Endpoint {
         case registerFCMToken(String)
         case fetchNotifications(page: Int, size: Int)
-        case fetchNewNotifications(afterId: Int)
+        case fetchNewNotifications(afterId: Int, size: Int)
         case markAsRead(notificationId: Int)
     }
 
@@ -57,9 +57,12 @@ struct NotificationTarget: TargetType {
                 ],
                 encoding: URLEncoding.queryString
             )
-        case .fetchNewNotifications(let afterId):
+        case let .fetchNewNotifications(afterId, size):
             return .requestParameters(
-                parameters: ["afterId": afterId],
+                parameters: [
+                    "afterId": afterId,
+                    "size": size
+                ],
                 encoding: URLEncoding.queryString
             )
         case .markAsRead:
