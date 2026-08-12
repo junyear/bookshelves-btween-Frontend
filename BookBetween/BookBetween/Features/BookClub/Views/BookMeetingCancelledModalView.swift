@@ -15,10 +15,18 @@ struct BookMeetingCancelledModalView: View {
                     .multilineTextAlignment(.center)
 
                 if let subtitle {
-                    Text(subtitle)
+                    let parts = subtitle.split(separator: "|", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+                    Text(parts.first ?? subtitle)
                         .caption1SemiBoldStyle
                         .foregroundStyle(Color.gray500)
                         .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                    if parts.count > 1 {
+                        Text(parts[1])
+                            .caption1SemiBoldStyle
+                            .foregroundStyle(Color.gray500)
+                            .multilineTextAlignment(.center)
+                    }
                 }
             }
             
@@ -27,7 +35,7 @@ struct BookMeetingCancelledModalView: View {
         }
         .padding(.vertical, 20)
         .padding(.horizontal, 30)
-        .frame(width: 300, height: subtitle != nil ? 243 : 223)
+        .frame(width: 300)
         .background { modalBackground }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay { borderOverlay }
